@@ -698,6 +698,37 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                   </div>
                 )}
 
+                {/* Venue Details */}
+                <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                  <h5 className="font-medium text-gray-900 mb-2 text-sm">Venue Details</h5>
+                  <div className="space-y-2 text-sm text-gray-700">
+                    <div>
+                      <span className="font-medium text-gray-900">Name:</span> {venue.name}
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-900">Address:</span> {venue.address}
+                    </div>
+                    {venue.phone && (
+                      <div>
+                        <span className="font-medium text-gray-900">Phone:</span>{' '}
+                        <a href={`tel:${venue.phone}`} className="text-blue-600 hover:underline">{venue.phone}</a>
+                      </div>
+                    )}
+                    {venue.email && (
+                      <div>
+                        <span className="font-medium text-gray-900">Email:</span>{' '}
+                        <a href={`mailto:${venue.email}`} className="text-blue-600 hover:underline">{venue.email}</a>
+                      </div>
+                    )}
+                    {venue.website && (
+                      <div>
+                        <span className="font-medium text-gray-900">Website:</span>{' '}
+                        <a href={venue.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{venue.website}</a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Footer */}
                 <div className="mt-4 bg-blue-50 rounded-lg p-3">
                   <p className="text-xs text-blue-800 text-center">

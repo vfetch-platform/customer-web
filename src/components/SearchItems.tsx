@@ -4,8 +4,63 @@ import { useState } from 'react';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Item } from '@/types';
-import { MagnifyingGlassIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, CheckCircleIcon, LightBulbIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { ProgressSteps } from './ProgressSteps';
+
+const DESCRIPTION_HARD_MIN_WORDS = 3;
+const DESCRIPTION_HARD_MIN_CHARS = 15;
+const DESCRIPTION_SOFT_MIN_WORDS = 8;
+const DESCRIPTION_SOFT_MIN_CHARS = 40;
+
+const COLOR_WORDS = new Set([
+  'black', 'white', 'red', 'blue', 'green', 'brown', 'grey', 'gray',
+  'silver', 'gold', 'pink', 'navy', 'orange', 'purple', 'yellow', 'beige', 'tan',
+]);
+
+const LOCATION_WORDS = new Set([
+  'room', 'lobby', 'pool', 'bar', 'restaurant', 'gym', 'conference',
+  'reception', 'spa', 'lounge', 'hallway', 'elevator', 'bathroom', 'terrace',
+  'beach', 'parking', 'floor',
+]);
+
+const EXAMPLE_QUERIES = [
+  'Black iPhone 14 Pro in a blue silicone case, last seen at the pool area',
+  "Navy blue North Face jacket, men's size large, left in conference room B",
+  'Silver Ray-Ban Aviator sunglasses in a brown leather case',
+];
+
+const getWordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+
+const isBelowHardMin = (text: string) =>
+  getWordCount(text) < DESCRIPTION_HARD_MIN_WORDS || text.trim().length < DESCRIPTION_HARD_MIN_CHARS;
+
+const isBelowSoftMin = (text: string) =>
+  getWordCount(text) < DESCRIPTION_SOFT_MIN_WORDS || text.trim().length < DESCRIPTION_SOFT_MIN_CHARS;
+
+const getMissingSuggestions = (text: string): { label: string; suffix: string }[] => {
+  const lower = text.toLowerCase();
+  const words = lower.split(/\s+/);
+  const suggestions: { label: string; suffix: string }[] = [];
+
+  if (!words.some(w => COLOR_WORDS.has(w))) {
+    suggestions.push({ label: '+ Add a colour', suffix: ', [colour?]' });
+  }
+  const capitalizedWords = text.match(/\b[A-Z][a-z]{2,}\b/g) || [];
+  const hasBrand = capitalizedWords.some(w => {
+    const lw = w.toLowerCase();
+    return !COLOR_WORDS.has(lw) && !['the', 'this', 'that', 'with', 'from', 'left', 'last', 'seen', 'near', 'lost', 'found', 'maybe', 'about', 'some', 'please', 'help'].includes(lw);
+  }) || /brand|make/i.test(text);
+  if (!hasBrand) {
+    suggestions.push({ label: '+ Add brand or make', suffix: ', [brand?]' });
+  }
+  if (!/\b(small|medium|large|x+l|xs|size|\d{1,2}\s*(pro|max|mini|plus|inch|cm))/i.test(text)) {
+    suggestions.push({ label: '+ Add size or model', suffix: ', [size/model?]' });
+  }
+  if (!words.some(w => LOCATION_WORDS.has(w))) {
+    suggestions.push({ label: '+ Where you last saw it', suffix: ', last seen at [location?]' });
+  }
+  return suggestions;
+};
 
 interface SearchItemsProps {
   venue: Venue;
@@ -29,6 +84,8 @@ export default function SearchItems({ venue }: SearchItemsProps) {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [claimId, setClaimId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [descriptionTouched, setDescriptionTouched] = useState(false);
+  const [descriptionWarningDismissed, setDescriptionWarningDismissed] = useState(false);
   // Track which item descriptions are expanded
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
   // Modal carousel state
@@ -70,13 +127,52 @@ export default function SearchItems({ venue }: SearchItemsProps) {
     }
   };
 
+  const handleExampleClick = (example: string) => {
+    setFormData(prev => ({ ...prev, itemDescription: example }));
+    setDescriptionTouched(false);
+    setDescriptionWarningDismissed(false);
+    document.getElementById('itemDescription')?.focus();
+  };
+
+  const handleSuggestionClick = (suffix: string) => {
+    const newText = formData.itemDescription.trimEnd() + suffix;
+    setFormData(prev => ({ ...prev, itemDescription: newText }));
+    const bracketStart = newText.lastIndexOf('[');
+    const bracketEnd = newText.lastIndexOf(']') + 1;
+    setTimeout(() => {
+      const el = document.getElementById('itemDescription') as HTMLTextAreaElement | null;
+      if (el) {
+        el.focus();
+        if (bracketStart > -1) {
+          el.setSelectionRange(bracketStart, bracketEnd);
+        }
+      }
+    }, 0);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'itemDescription' && !isBelowSoftMin(value)) {
+      setDescriptionWarningDismissed(false);
+    }
   };
 
   const handleSubmitQuery = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    setDescriptionTouched(true);
+    const desc = formData.itemDescription;
+
+    if (isBelowHardMin(desc)) {
+      return;
+    }
+
+    if (isBelowSoftMin(desc) && !descriptionWarningDismissed) {
+      setDescriptionWarningDismissed(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -301,16 +397,88 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                   rows={4}
                   value={formData.itemDescription}
                   onChange={handleInputChange}
-                  className="peer w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent resize-none text-gray-900 bg-white"
+                  onBlur={() => setDescriptionTouched(true)}
+                  aria-invalid={descriptionTouched && isBelowHardMin(formData.itemDescription) ? 'true' : undefined}
+                  aria-describedby={
+                    descriptionTouched && isBelowHardMin(formData.itemDescription)
+                      ? 'itemDescription-error'
+                      : 'itemDescription-hint'
+                  }
+                  className={`peer w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent resize-none text-gray-900 bg-white ${
+                    descriptionTouched && isBelowHardMin(formData.itemDescription)
+                      ? 'border-red-400'
+                      : descriptionTouched && isBelowSoftMin(formData.itemDescription)
+                      ? 'border-amber-300'
+                      : 'border-gray-200'
+                  }`}
                   placeholder="Please describe your lost item in detail..."
                 />
                 <label htmlFor="itemDescription" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
                   Description of Lost Item *
                 </label>
               </div>
-              <p className="text-sm text-gray-500 mt-2">
-                Include details like color, brand, model, size, and any distinctive features
+
+              {/* Inline validation error - hard minimum */}
+              {descriptionTouched && isBelowHardMin(formData.itemDescription) && (
+                <div id="itemDescription-error" className="flex items-center gap-1.5 mt-2" role="alert">
+                  <ExclamationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" />
+                  <p className="text-sm text-red-600">
+                    Please describe your item in at least a few words (e.g. item type, colour, brand)
+                  </p>
+                </div>
+              )}
+
+              {/* Helper text */}
+              <p id="itemDescription-hint" className="text-sm text-gray-500 mt-2 flex items-start gap-1.5">
+                <LightBulbIcon className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <span>Try including the <strong>item type</strong>, <strong>brand</strong>, <strong>colour</strong>, and <strong>where you last saw it</strong> for the best results</span>
               </p>
+
+              {/* Example queries - only when textarea is empty */}
+              {!formData.itemDescription.trim() && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Examples</p>
+                  <div className="flex flex-col gap-2">
+                    {EXAMPLE_QUERIES.map((example, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleExampleClick(example)}
+                        className="text-left text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg px-3 py-2 border border-transparent hover:border-blue-200 transition-colors"
+                      >
+                        &ldquo;{example}&rdquo;
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* "Improve your search" nudge banner - only after typing + submitting a short query */}
+              {descriptionTouched && formData.itemDescription.trim().length > 0 && isBelowSoftMin(formData.itemDescription) && !isBelowHardMin(formData.itemDescription) && descriptionWarningDismissed && (
+                <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <LightBulbIcon className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 mb-2">
+                      Improve your search for better results
+                    </p>
+                    <p className="text-xs text-amber-700 mb-3">
+                      Adding more detail helps our AI find your item faster. Try including:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {getMissingSuggestions(formData.itemDescription).map((suggestion, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => handleSuggestionClick(suggestion.suffix)}
+                          className="inline-flex items-center text-xs font-medium bg-white text-amber-800 border border-amber-300 rounded-full px-3 py-1.5 hover:bg-amber-100 hover:border-amber-400 transition-colors"
+                        >
+                          {suggestion.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {error && (
@@ -331,6 +499,11 @@ export default function SearchItems({ venue }: SearchItemsProps) {
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                ) : descriptionWarningDismissed && isBelowSoftMin(formData.itemDescription) ? (
+                  <>
+                    <MagnifyingGlassIcon className="h-6 w-6" />
+                    <span>Search Anyway</span>
+                  </>
                 ) : (
                   <>
                     <MagnifyingGlassIcon className="h-6 w-6" />
