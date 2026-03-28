@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { customerApi } from '@/lib/api';
+import { customerApi, getErrorMessage } from '@/lib/api';
 import { Venue } from '@/types';
 import SearchItems from '@/components/SearchItems';
 import ClaimStatus from '@/components/ClaimStatus';
@@ -16,23 +16,25 @@ export default function LostAndFoundPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchVenue = async () => {
-      try {
-        const response = await customerApi.getVenue(venueId);
-        setVenue(response.data);
-      } catch (err) {
-        setError('Venue not found');
-        console.error('Error fetching venue:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchVenue = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await customerApi.getVenue(venueId);
+      setVenue(response.data);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+      console.error('Error fetching venue:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [venueId]);
 
+  useEffect(() => {
     if (venueId) {
       fetchVenue();
     }
-  }, [venueId]);
+  }, [venueId, fetchVenue]);
 
   if (loading) {
     return (
@@ -45,13 +47,19 @@ export default function LostAndFoundPage() {
   if (error || !venue) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
             {error || 'Venue not found'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-6">
             Please check the URL and try again.
           </p>
+          <button
+            onClick={fetchVenue}
+            className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );

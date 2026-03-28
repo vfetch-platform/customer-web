@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { customerApi } from '@/lib/api';
+import { customerApi, getErrorMessage } from '@/lib/api';
+import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Item } from '@/types';
 import { MagnifyingGlassIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { ProgressSteps } from './ProgressSteps';
@@ -27,6 +28,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
   const [queryId, setQueryId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [claimId, setClaimId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   // Track which item descriptions are expanded
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
   // Modal carousel state
@@ -76,6 +78,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
   const handleSubmitQuery = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
       // Step 1: Create query and get AI matches
@@ -99,9 +102,9 @@ export default function SearchItems({ venue }: SearchItemsProps) {
       const matchesResponse = await customerApi.getMatchedItems(queryResponse.data.id, 1);
       setMatchedItems(matchesResponse.data);
       setStep(2);
-    } catch (error) {
-      console.error('Error submitting query:', error);
-      alert('Error submitting your query. Please try again.');
+    } catch (err: unknown) {
+      console.error('Error submitting query:', err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -111,6 +114,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
     if (!queryId) return; // still referencing for contextual notes
 
     setLoading(true);
+    setError(null);
     try {
   const response = await customerApi.createClaim(
         item.id,
@@ -119,9 +123,9 @@ export default function SearchItems({ venue }: SearchItemsProps) {
       );
       setClaimId(response.data.id);
       setSelectedItem(item);
-    } catch (error) {
-      console.error('Error creating claim:', error);
-      alert('Error creating claim. Please try again.');
+    } catch (err: unknown) {
+      console.error('Error creating claim:', err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -309,6 +313,15 @@ export default function SearchItems({ venue }: SearchItemsProps) {
               </p>
             </div>
 
+            {error && (
+              <ErrorBanner
+                message={error}
+                variant="error"
+                onDismiss={() => setError(null)}
+                className="mb-4"
+              />
+            )}
+
             {/* Submit Button */}
             <div className="pt-6 border-t border-gray-100">
               <button
@@ -359,6 +372,14 @@ export default function SearchItems({ venue }: SearchItemsProps) {
         </div>
         
         <div className="p-8">
+          {error && (
+            <ErrorBanner
+              message={error}
+              variant="error"
+              onDismiss={() => setError(null)}
+              className="mb-6"
+            />
+          )}
           {loading && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8" aria-hidden="true">
               {Array.from({ length: 3 }).map((_, i) => (

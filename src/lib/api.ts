@@ -1,14 +1,73 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import CryptoJS from 'crypto-js';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Response error interceptor: normalize errors + retry GET requests
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const config = error.config as InternalAxiosRequestConfig & { __retryCount?: number };
+
+    // Retry logic: only GET requests, only network errors or 5xx
+    const isRetryable =
+      config &&
+      config.method === 'get' &&
+      (!error.response || (error.response.status >= 500 && error.response.status < 600));
+
+    if (isRetryable) {
+      config.__retryCount = (config.__retryCount || 0) + 1;
+      if (config.__retryCount <= MAX_RETRIES) {
+        const delay = RETRY_DELAY_MS * Math.pow(2, config.__retryCount - 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return api.request(config);
+      }
+    }
+
+    // Normalize error message for components
+    let message: string;
+    if (error.code === 'ECONNABORTED') {
+      message = 'The request took too long. Please try again.';
+    } else if (!error.response) {
+      message = 'Unable to connect. Please check your internet connection and try again.';
+    } else if (error.response.status >= 500) {
+      message = 'Something went wrong on our end. Please try again shortly.';
+    } else {
+      const data = error.response.data as Record<string, unknown> | undefined;
+      message =
+        (data?.error as string) ||
+        (data?.message as string) ||
+        'An unexpected error occurred. Please try again.';
+    }
+
+    (error as AxiosError & { normalizedMessage: string }).normalizedMessage = message;
+    return Promise.reject(error);
+  }
+);
+
+/** Extract a user-friendly error message from any caught error */
+export function getErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'normalizedMessage' in err) {
+    return (err as { normalizedMessage: string }).normalizedMessage;
+  }
+  if (err instanceof AxiosError) {
+    const data = err.response?.data as Record<string, unknown> | undefined;
+    return (data?.error as string) || (data?.message as string) || err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return 'An unexpected error occurred. Please try again.';
+}
 
 // API functions for the customer app
 export const customerApi = {

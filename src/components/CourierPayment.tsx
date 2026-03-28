@@ -8,14 +8,14 @@ import {
   useElements,
 } from '@stripe/react-stripe-js';
 import { loadStripe, type Stripe as StripeType } from '@stripe/stripe-js';
-import { customerApi } from '@/lib/api';
+import { customerApi, getErrorMessage } from '@/lib/api';
+import ErrorBanner from '@/components/ErrorBanner';
 import { CourierQuote } from '@/types';
 import {
   CurrencyPoundIcon,
   ShieldCheckIcon,
   TruckIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -172,12 +172,8 @@ function CheckoutForm({
       setBookingData(result.data);
       setSucceeded(true);
       onPaymentSuccess(result.data);
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.error ||
-        err?.message ||
-        'Booking failed. Payment may have succeeded — please contact support.';
-      setError(msg);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setProcessing(false);
     }
@@ -261,12 +257,7 @@ function CheckoutForm({
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-          <ExclamationTriangleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <p className="text-red-700 text-sm">{error}</p>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} variant="error" onDismiss={() => setError(null)} />}
 
       <div className="flex gap-3">
         <button
@@ -343,13 +334,9 @@ export default function CourierPayment({
       setClientSecret(paymentRes.data.clientSecret);
       setPaymentIntentId(paymentRes.data.paymentIntentId);
       setBreakdown(paymentRes.data.breakdown);
-    } catch (err: any) {
+    } catch (err: unknown) {
       initRef.current = false;
-      setError(
-        err?.response?.data?.error ||
-          err?.message ||
-          'Failed to initialise payment. Please try again.'
-      );
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -375,9 +362,7 @@ export default function CourierPayment({
   if (error) {
     return (
       <div className="space-y-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-700">{error}</p>
-        </div>
+        <ErrorBanner message={error} variant="error" />
         <div className="flex gap-3">
           <button
             onClick={onCancel}
@@ -386,7 +371,7 @@ export default function CourierPayment({
             Go Back
           </button>
           <button
-            onClick={initPayment}
+            onClick={() => { initRef.current = false; initPayment(); }}
             className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Retry
