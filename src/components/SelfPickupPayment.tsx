@@ -61,18 +61,17 @@ interface SelfPickupPaymentProps {
 function CheckoutForm({
   claimId,
   platformFee,
-  paymentIntentId,
   onPaymentSuccess,
   onCancel,
 }: {
   claimId: string;
   platformFee: number;
-  paymentIntentId: string;
   onPaymentSuccess: (paymentIntentId: string) => void;
   onCancel: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
+  const feeDisplay = platformFee.toFixed(2);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [succeeded, setSucceeded] = useState(false);
@@ -158,14 +157,14 @@ function CheckoutForm({
               <ShieldCheckIcon className="h-4 w-4" />
               VFetch Platform Fee
             </span>
-            <span>&pound;{platformFee.toFixed(2)}</span>
+            <span>&pound;{feeDisplay}</span>
           </div>
           <hr className="border-gray-300" />
           <div className="flex justify-between font-semibold text-gray-900 text-base">
             <span>Total</span>
             <span className="flex items-center gap-1">
               <CurrencyPoundIcon className="h-5 w-5" />
-              {platformFee.toFixed(2)}
+              {feeDisplay}
             </span>
           </div>
         </div>
@@ -211,7 +210,7 @@ function CheckoutForm({
               Processing…
             </span>
           ) : (
-            `Pay £${platformFee.toFixed(2)}`
+            `Pay £${feeDisplay}`
           )}
         </button>
       </div>
@@ -258,7 +257,7 @@ export default function SelfPickupPayment({
       setStripeInstance(stripe);
       setClientSecret(res.data.clientSecret);
       setPaymentIntentId(res.data.paymentIntentId);
-      setPlatformFee(res.data.platformFee);
+      setPlatformFee(res.data.amount ?? res.data.platformFee ?? 0);
     } catch (err: any) {
       initRef.current = false;
       setError(
@@ -332,7 +331,6 @@ export default function SelfPickupPayment({
       <CheckoutForm
         claimId={claimId}
         platformFee={platformFee}
-        paymentIntentId={paymentIntentId}
         onPaymentSuccess={onPaymentSuccess}
         onCancel={onCancel}
       />
