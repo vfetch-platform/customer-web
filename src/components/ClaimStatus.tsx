@@ -82,7 +82,10 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!claimId.trim()) return;
+    if (!claimId.trim()) {
+      setError('Please enter a Claim ID to check your claim status.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -133,10 +136,14 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
       paymentIntentId,
     });
     setStep('confirmation');
-    // Refresh claim in background
+    // Refresh claim to get pickup_code and updated status
     try {
       const refreshed = await customerApi.getClaimStatus(claim!.id);
-      setClaim(refreshed.data || refreshed);
+      const refreshedClaim = refreshed.data || refreshed;
+      setClaim(refreshedClaim);
+      if (refreshedClaim.pickup_code) {
+        setConfirmationData(prev => prev ? { ...prev, pickupCode: refreshedClaim.pickup_code } : prev);
+      }
     } catch { /* ignore */ }
   };
 
@@ -415,14 +422,8 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               <CollectionMethods
                 claim={claim}
                 venue={venue}
-                onCourierBooked={async () => {
-                  try {
-                    const refreshed = await customerApi.getClaimStatus(claim.id);
-                    const refreshedClaim = refreshed.data || refreshed;
-                    setClaim(refreshedClaim);
-                    sessionStorage.setItem('claimStatusResult', JSON.stringify(refreshedClaim));
-                  } catch { /* ignore */ }
-                }}
+                onCourierBooked={handleCourierBooked}
+                onSelfPickupConfirmed={handleSelfPickupConfirmed}
               />
             )}
 
@@ -551,7 +552,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
         )}
 
         {/* ═══════════ STEP 3: COLLECTION ═══════════ */}
-        {step === 'collection' && claim && claim.payment_status !== 'completed' && (
+        {step === 'collection' && claim && (
           <CollectionMethods
             claim={claim}
             venue={venue}
