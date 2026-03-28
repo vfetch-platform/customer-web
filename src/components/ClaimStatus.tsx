@@ -88,7 +88,14 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
       sessionStorage.setItem('claimStatusResult', JSON.stringify(response.data));
       setStep('details');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Claim not found');
+      const status = err.response?.status;
+      if (status === 400 || status === 422) {
+        setError('Invalid Claim ID. Please check your Claim ID and try again.');
+      } else if (status === 404) {
+        setError('Claim not found. Please check your Claim ID and try again.');
+      } else {
+        setError(err.normalizedMessage || 'Something went wrong. Please try again.');
+      }
       setClaim(null);
     } finally {
       setLoading(false);

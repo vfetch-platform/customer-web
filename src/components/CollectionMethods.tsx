@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { customerApi } from '@/lib/api';
+import { customerApi, getErrorMessage } from '@/lib/api';
+import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Claim, CourierQuote } from '@/types';
 import CourierAddressForm, { AddressFormValues } from './CourierAddressForm';
 import CourierPayment from './CourierPayment';
@@ -43,6 +44,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
   const [submittingAddress, setSubmittingAddress] = useState(false);
   const [itemValue, setItemValue] = useState<string>('');
   const [quotes, setQuotes] = useState<CourierQuote[]>([]);
+  const [quotesLoaded, setQuotesLoaded] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<CourierQuote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
     setError(null);
     setSuccess(null);
     setQuotes([]);
+    setQuotesLoaded(false);
     setSelectedQuote(null);
     if (method === 'self_pickup') {
       // Reset address data only when going back to self pickup
@@ -92,8 +95,9 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
       // Get courier quotes
       const response = await customerApi.getCourierQuotes(claim.id, deliveryAddress, parsedValue);
       setQuotes(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Error getting quotes. Please check the address and try again.');
+      setQuotesLoaded(true);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -110,8 +114,8 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
       setPaymentQuote(quote);
       setSelectedQuote(quote);
       setShowPayment(true);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Error preparing payment. Please try again.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -199,9 +203,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-700">{error}</p>
-        </div>
+        <ErrorBanner message={error} variant="error" onDismiss={() => setError(null)} className="mb-6" />
       )}
 
       {success && (
@@ -435,6 +437,23 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
               </div>
             )}
           </div>
+
+          {/* No quotes available */}
+          {quotesLoaded && quotes.length === 0 && !loading && (
+            <div className="text-center py-8">
+              <TruckIcon className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-700 font-medium mb-1">No delivery quotes available</p>
+              <p className="text-gray-500 text-sm mb-4">
+                We couldn&apos;t find courier options for this address. Please verify your address or try a different collection method.
+              </p>
+              <button
+                onClick={() => { setSelectedMethod(null); setQuotesLoaded(false); }}
+                className="text-blue-600 hover:underline text-sm font-medium"
+              >
+                Choose a different method
+              </button>
+            </div>
+          )}
 
           {/* Show Quotes */}
           {quotes.length > 0 && !showPayment && (

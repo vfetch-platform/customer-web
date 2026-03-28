@@ -8,12 +8,12 @@ import {
   useElements,
 } from '@stripe/react-stripe-js';
 import { loadStripe, type Stripe as StripeType } from '@stripe/stripe-js';
-import { customerApi } from '@/lib/api';
+import { customerApi, getErrorMessage } from '@/lib/api';
+import ErrorBanner from '@/components/ErrorBanner';
 import {
   CurrencyPoundIcon,
   ShieldCheckIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
 
@@ -42,8 +42,10 @@ async function getStripe(): Promise<StripeType | null> {
       stripePromise = loadStripe(key);
       return stripePromise;
     }
+    console.error('[SelfPickupPayment] Backend returned empty Stripe publishable key');
     return null;
-  } catch {
+  } catch (err) {
+    console.error('[SelfPickupPayment] Failed to fetch Stripe config:', err);
     return null;
   }
 }
@@ -120,12 +122,8 @@ function CheckoutForm({
       await customerApi.confirmSelfPickup(claimId, paymentIntent.id);
       setSucceeded(true);
       onPaymentSuccess(paymentIntent.id);
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.error ||
-        err?.message ||
-        'Payment failed. Please try again or contact support.'
-      );
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setProcessing(false);
     }
@@ -180,12 +178,7 @@ function CheckoutForm({
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-          <ExclamationTriangleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <p className="text-red-700 text-sm">{error}</p>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} variant="error" onDismiss={() => setError(null)} />}
 
       <div className="flex gap-3">
         <button
@@ -258,13 +251,9 @@ export default function SelfPickupPayment({
       setClientSecret(res.data.clientSecret);
       setPaymentIntentId(res.data.paymentIntentId);
       setPlatformFee(res.data.amount ?? res.data.platformFee ?? 0);
-    } catch (err: any) {
+    } catch (err: unknown) {
       initRef.current = false;
-      setError(
-        err?.response?.data?.error ||
-        err?.message ||
-        'Failed to initialise payment. Please try again.'
-      );
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -289,9 +278,7 @@ export default function SelfPickupPayment({
   if (error) {
     return (
       <div className="space-y-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-700">{error}</p>
-        </div>
+        <ErrorBanner message={error} variant="error" />
         <div className="flex gap-3">
           <button
             onClick={onCancel}
