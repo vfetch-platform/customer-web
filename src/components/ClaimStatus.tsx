@@ -12,6 +12,11 @@ import {
   TruckIcon,
   ArrowLeftIcon,
   ClipboardDocumentIcon,
+  MapPinIcon,
+  BuildingOfficeIcon,
+  PhoneIcon,
+  EnvelopeIcon,
+  GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 
 // ─── Types ──────────────────────────────────────────────────
@@ -313,7 +318,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             {/* Back to search */}
             <button
               type="button"
-              onClick={() => { setClaim(null); setError(null); sessionStorage.removeItem('claimStatusResult'); }}
+              onClick={() => { setClaim(null); setError(null); setStep('search'); sessionStorage.removeItem('claimStatusResult'); }}
               className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
             >
               <ArrowLeftIcon className="h-4 w-4 mr-1" />
@@ -440,7 +445,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             )}
 
             {/* Pickup Code — if self pickup already arranged */}
-            {claim.collection_method === 'self_pickup' && claim.pickup_code && (
+            {(claim.status === 'approved' || claim.status === 'collected') && claim.payment_status === 'completed' && claim.collection_method === 'self_pickup' && claim.pickup_code && (
               <div className="border border-sidebar-200 rounded-lg p-6 text-sidebar-900 bg-white">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4">Pickup Information</h4>
                 <div className="bg-green-50 rounded-lg p-4">
@@ -455,48 +460,73 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             )}
 
             {/* Venue Details — shown after payment is completed */}
-            {claim.payment_status === 'completed' && (
-              <div className="border border-sidebar-200 rounded-lg p-6 text-sidebar-900 bg-white">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Venue Details</h4>
-                <div className="space-y-3 text-sm text-gray-700">
-                  <div>
-                    <span className="font-medium text-gray-900">Name:</span> {venue.name}
+            {(claim.status === 'approved' || claim.status === 'collected') && claim.payment_status === 'completed' && (
+              <div className="border-2 border-green-300 rounded-xl p-6 bg-green-50/50">
+                <div className="flex items-center space-x-2 mb-4">
+                  <MapPinIcon className="h-6 w-6 text-green-700" />
+                  <h4 className="text-lg font-semibold text-green-900">Venue Details</h4>
+                </div>
+                <div className="bg-white rounded-lg p-4 space-y-3 text-sm">
+                  <div className="flex items-start space-x-3">
+                    <BuildingOfficeIcon className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Venue</p>
+                      <p className="font-semibold text-gray-900">{venue.name}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-medium text-gray-900">Address:</span> {venue.address}
+                  <div className="flex items-start space-x-3">
+                    <MapPinIcon className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Address</p>
+                      <p className="font-semibold text-gray-900">{venue.address}</p>
+                    </div>
                   </div>
                   {venue.phone && (
-                    <div>
-                      <span className="font-medium text-gray-900">Phone:</span>{' '}
-                      <a href={`tel:${venue.phone}`} className="text-blue-600 hover:underline">{venue.phone}</a>
+                    <div className="flex items-start space-x-3">
+                      <PhoneIcon className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</p>
+                        <a href={`tel:${venue.phone}`} className="font-semibold text-blue-600 hover:underline">{venue.phone}</a>
+                      </div>
                     </div>
                   )}
                   {venue.email && (
-                    <div>
-                      <span className="font-medium text-gray-900">Email:</span>{' '}
-                      <a href={`mailto:${venue.email}`} className="text-blue-600 hover:underline">{venue.email}</a>
+                    <div className="flex items-start space-x-3">
+                      <EnvelopeIcon className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Email</p>
+                        <a href={`mailto:${venue.email}`} className="font-semibold text-blue-600 hover:underline">{venue.email}</a>
+                      </div>
                     </div>
                   )}
                   {venue.website && (
-                    <div>
-                      <span className="font-medium text-gray-900">Website:</span>{' '}
-                      <a href={venue.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{venue.website}</a>
-                    </div>
-                  )}
-                  {venue.collection_hours && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <p className="font-medium text-gray-900 mb-2">Collection Hours</p>
-                      <div className="grid grid-cols-2 gap-1 text-sm text-gray-600">
-                        {Object.entries(venue.collection_hours).map(([day, hours]) => (
-                          <div key={day} className="flex justify-between">
-                            <span className="capitalize">{day}:</span>
-                            <span>{hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}</span>
-                          </div>
-                        ))}
+                    <div className="flex items-start space-x-3">
+                      <GlobeAltIcon className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Website</p>
+                        <a href={venue.website} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline">{venue.website}</a>
                       </div>
                     </div>
                   )}
                 </div>
+                {venue.collection_hours && (
+                  <div className="mt-4 bg-white rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <ClockIcon className="h-5 w-5 text-green-700" />
+                      <p className="font-semibold text-green-900">Collection Hours</p>
+                    </div>
+                    <div className="space-y-1.5 text-sm">
+                      {Object.entries(venue.collection_hours).map(([day, hours]) => (
+                        <div key={day} className="flex justify-between">
+                          <span className="capitalize font-medium text-gray-700">{day}</span>
+                          <span className={hours.closed ? 'text-red-500 font-medium' : 'text-gray-900 font-medium'}>
+                            {hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
