@@ -316,28 +316,18 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
           <div className="bg-blue-50 rounded-lg p-6">
             <h6 className="font-medium text-blue-900 mb-3">Self Pickup Instructions</h6>
             <div className="space-y-2 text-blue-800 text-sm">
-              <p>1. Visit the venue during collection hours</p>
-              <p>2. Present your pickup code: <span className="font-mono font-bold">{claim.pickup_code}</span></p>
-              <p>3. Bring valid photo ID matching your claim details</p>
-              <p>4. Venue staff will verify and release your item</p>
-              <p>5. Once you pay the platform fee, we&apos;ll provide the venue details for you to collect your item</p>
+              <p>1. Complete the platform fee payment below</p>
+              <p>2. Your pickup code and venue details will appear after payment</p>
+              <p>3. Visit the venue during collection hours with your pickup code</p>
+              <p>4. Bring valid photo ID matching your claim details</p>
+              <p>5. Venue staff will verify and release your item</p>
             </div>
 
-            {venue.collection_hours && (
-              <div className="mt-4 p-4 bg-white rounded border">
-                <h6 className="font-medium text-gray-900 mb-2">Collection Hours</h6>
-                <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                  {Object.entries(venue.collection_hours).map(([day, hours]) => (
-                    <div key={day} className="flex justify-between">
-                      <span className="capitalize">{day}:</span>
-                      <span>
-                        {hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="mt-4 p-3 bg-white/60 rounded border border-blue-200">
+              <p className="text-sm text-blue-700">
+                <strong>Note:</strong> Your pickup code, venue details, and collection hours will be provided after payment is confirmed.
+              </p>
+            </div>
 
             {!showSelfPickupPayment && (
               <button

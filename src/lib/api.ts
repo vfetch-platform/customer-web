@@ -25,7 +25,22 @@ export const customerApi = {
   // Get venue details
   getVenue: async (venueId: string) => {
     const response = await api.get(`/venues/${venueId}`);
-    return response.data;
+    const data = response.data;
+    // Backend returns "schedule" (array of time slots per day), transform to "collection_hours" (single slot per day)
+    const venue = data?.data || data;
+    if (venue?.schedule && !venue.collection_hours) {
+      venue.collection_hours = Object.fromEntries(
+        Object.entries(venue.schedule as Record<string, Array<{ open: string; close: string }>>).map(
+          ([day, slots]) => [
+            day,
+            slots.length > 0
+              ? { open: slots[0].open, close: slots[0].close }
+              : { open: '', close: '', closed: true },
+          ]
+        )
+      );
+    }
+    return data;
   },
 
   // Create query (Step 1)
