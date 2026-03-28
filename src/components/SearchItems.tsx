@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Item } from '@/types';
@@ -66,17 +66,29 @@ interface SearchItemsProps {
   venue: Venue;
 }
 
+const SEARCH_FORM_STORAGE_KEY = 'searchItemsFormData';
+
+const defaultFormData = {
+  name: '',
+  email: '',
+  phone: '',
+  location: '',
+  checkinDate: '',
+  checkoutDate: '',
+  bookingReference: '',
+  itemDescription: '',
+};
+
 export default function SearchItems({ venue }: SearchItemsProps) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    location: '',
-    checkinDate: '',
-    checkoutDate: '',
-    bookingReference: '',
-    itemDescription: '',
+  const [formData, setFormData] = useState<typeof defaultFormData>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem(SEARCH_FORM_STORAGE_KEY);
+        if (stored) return { ...defaultFormData, ...JSON.parse(stored) };
+      } catch { /* ignore */ }
+    }
+    return defaultFormData;
   });
   const [matchedItems, setMatchedItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,6 +98,13 @@ export default function SearchItems({ venue }: SearchItemsProps) {
   const [error, setError] = useState<string | null>(null);
   const [descriptionTouched, setDescriptionTouched] = useState(false);
   const [descriptionWarningDismissed, setDescriptionWarningDismissed] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Persist form data to sessionStorage across tab switches
+  useEffect(() => {
+    sessionStorage.setItem(SEARCH_FORM_STORAGE_KEY, JSON.stringify(formData));
+  }, [formData]);
+
   // Track which item descriptions are expanded
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
   // Modal carousel state
@@ -156,10 +175,37 @@ export default function SearchItems({ venue }: SearchItemsProps) {
     if (name === 'itemDescription' && !isBelowSoftMin(value)) {
       setDescriptionWarningDismissed(false);
     }
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => { const next = { ...prev }; delete next[name]; return next; });
+    }
+  };
+
+  const validateFields = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (!formData.name.trim()) errors.name = 'Full name is required';
+    if (!formData.email.trim()) {
+      errors.email = 'Email address is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      errors.email = 'Please enter a valid email address';
+    }
+    if (!formData.location.trim()) errors.location = 'Location is required';
+    if (!formData.checkinDate) errors.checkinDate = 'Check-in date is required';
+    if (!formData.checkoutDate) errors.checkoutDate = 'Check-out date is required';
+    if (formData.checkinDate && formData.checkoutDate && new Date(formData.checkoutDate) < new Date(formData.checkinDate)) {
+      errors.checkoutDate = 'Check-out date must be on or after check-in date';
+    }
+    return errors;
   };
 
   const handleSubmitQuery = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errors = validateFields();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
 
     setDescriptionTouched(true);
     const desc = formData.itemDescription;
@@ -219,6 +265,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
       );
       setClaimId(response.data.id);
       setSelectedItem(item);
+      sessionStorage.removeItem(SEARCH_FORM_STORAGE_KEY);
     } catch (err: unknown) {
       console.error('Error creating claim:', err);
       setError(getErrorMessage(err));
@@ -260,36 +307,42 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                 Personal Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="relative">
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    required
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="peer w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white"
-                    placeholder="Full Name"
-                  />
-                  <label htmlFor="name" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
-                    Full Name *
-                  </label>
+                <div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      required
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className={`peer w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white ${fieldErrors.name ? 'border-red-400' : 'border-gray-200'}`}
+                      placeholder="Full Name"
+                    />
+                    <label htmlFor="name" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
+                      Full Name *
+                    </label>
+                  </div>
+                  {fieldErrors.name && <p className="text-sm text-red-600 mt-1">{fieldErrors.name}</p>}
                 </div>
                 
-                <div className="relative">
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="peer w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white"
-                    placeholder="Email Address"
-                  />
-                  <label htmlFor="email" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
-                    Email Address *
-                  </label>
+                <div>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      required
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`peer w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white ${fieldErrors.email ? 'border-red-400' : 'border-gray-200'}`}
+                      placeholder="Email Address"
+                    />
+                    <label htmlFor="email" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
+                      Email Address *
+                    </label>
+                  </div>
+                  {fieldErrors.email && <p className="text-sm text-red-600 mt-1">{fieldErrors.email}</p>}
                 </div>
 
                 <div className="relative">
@@ -307,20 +360,23 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                   </label>
                 </div>
                 
-                <div className="relative">
-                  <input
-                    type="text"
-                    id="location"
-                    name="location"
-                    required
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    className="peer w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white"
-                    placeholder="Room 204, Conference Hall A"
-                  />
-                  <label htmlFor="location" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
-                    Location/Room Number *
-                  </label>
+                <div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      id="location"
+                      name="location"
+                      required
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className={`peer w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white ${fieldErrors.location ? 'border-red-400' : 'border-gray-200'}`}
+                      placeholder="Room 204, Conference Hall A"
+                    />
+                    <label htmlFor="location" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
+                      Location/Room Number *
+                    </label>
+                  </div>
+                  {fieldErrors.location && <p className="text-sm text-red-600 mt-1">{fieldErrors.location}</p>}
                 </div>
               </div>
             </div>
@@ -334,34 +390,40 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                 Stay Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="checkinDate"
-                    name="checkinDate"
-                    required
-                    value={formData.checkinDate}
-                    onChange={handleInputChange}
-                    className="peer w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors text-gray-900 bg-white"
-                  />
-                  <label htmlFor="checkinDate" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700">
-                    Check-in Date *
-                  </label>
+                <div>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      id="checkinDate"
+                      name="checkinDate"
+                      required
+                      value={formData.checkinDate}
+                      onChange={handleInputChange}
+                      className={`peer w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 transition-colors text-gray-900 bg-white ${fieldErrors.checkinDate ? 'border-red-400' : 'border-gray-200'}`}
+                    />
+                    <label htmlFor="checkinDate" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700">
+                      Check-in Date *
+                    </label>
+                  </div>
+                  {fieldErrors.checkinDate && <p className="text-sm text-red-600 mt-1">{fieldErrors.checkinDate}</p>}
                 </div>
                 
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="checkoutDate"
-                    name="checkoutDate"
-                    required
-                    value={formData.checkoutDate}
-                    onChange={handleInputChange}
-                    className="peer w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors text-gray-900 bg-white"
-                  />
-                  <label htmlFor="checkoutDate" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700">
-                    Check-out Date *
-                  </label>
+                <div>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      id="checkoutDate"
+                      name="checkoutDate"
+                      required
+                      value={formData.checkoutDate}
+                      onChange={handleInputChange}
+                      className={`peer w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 transition-colors text-gray-900 bg-white ${fieldErrors.checkoutDate ? 'border-red-400' : 'border-gray-200'}`}
+                    />
+                    <label htmlFor="checkoutDate" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700">
+                      Check-out Date *
+                    </label>
+                  </div>
+                  {fieldErrors.checkoutDate && <p className="text-sm text-red-600 mt-1">{fieldErrors.checkoutDate}</p>}
                 </div>
 
                 <div className="relative">

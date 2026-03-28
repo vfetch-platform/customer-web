@@ -45,10 +45,19 @@ api.interceptors.response.use(
       message = 'Something went wrong on our end. Please try again shortly.';
     } else {
       const data = error.response.data as Record<string, unknown> | undefined;
-      message =
-        (data?.error as string) ||
-        (data?.message as string) ||
-        'An unexpected error occurred. Please try again.';
+      const details = data?.details;
+      if (Array.isArray(details) && details.length > 0) {
+        message = details
+          .map((d: unknown) =>
+            typeof d === 'string' ? d : ((d as Record<string, unknown>)?.message as string) || ((d as Record<string, unknown>)?.msg as string) || JSON.stringify(d)
+          )
+          .join('. ');
+      } else {
+        message =
+          (data?.error as string) ||
+          (data?.message as string) ||
+          'An unexpected error occurred. Please try again.';
+      }
     }
 
     (error as AxiosError & { normalizedMessage: string }).normalizedMessage = message;
@@ -63,10 +72,32 @@ export function getErrorMessage(err: unknown): string {
   }
   if (err instanceof AxiosError) {
     const data = err.response?.data as Record<string, unknown> | undefined;
+    const details = data?.details;
+    if (Array.isArray(details) && details.length > 0) {
+      return details
+        .map((d: unknown) =>
+          typeof d === 'string' ? d : ((d as Record<string, unknown>)?.message as string) || ((d as Record<string, unknown>)?.msg as string) || JSON.stringify(d)
+        )
+        .join('. ');
+    }
     return (data?.error as string) || (data?.message as string) || err.message;
   }
   if (err instanceof Error) return err.message;
   return 'An unexpected error occurred. Please try again.';
+}
+
+/** Extract raw field-level error details from a backend response, if any */
+export function getErrorDetails(err: unknown): string[] {
+  if (err instanceof AxiosError) {
+    const data = err.response?.data as Record<string, unknown> | undefined;
+    const details = data?.details;
+    if (Array.isArray(details) && details.length > 0) {
+      return details.map((d: unknown) =>
+        typeof d === 'string' ? d : ((d as Record<string, unknown>)?.message as string) || ((d as Record<string, unknown>)?.msg as string) || JSON.stringify(d)
+      );
+    }
+  }
+  return [];
 }
 
 // API functions for the customer app
