@@ -18,10 +18,11 @@ import {
   EnvelopeIcon,
   GlobeAltIcon,
 } from '@heroicons/react/24/outline';
+import { ClaimStep, ALL_CLAIM_STEPS, CLIPBOARD_FEEDBACK_MS } from '@/constants/claimSteps';
+import { STORAGE_KEY_CLAIM_ID, STORAGE_KEY_CLAIM_RESULT } from '@/constants/storage';
+import { PLATFORM_FEE } from '@/constants/fees';
 
 // ─── Types ──────────────────────────────────────────────────
-
-type Step = 'search' | 'details' | 'collection' | 'confirmation';
 
 interface BookingResult {
   booking_id: string;
@@ -43,23 +44,14 @@ interface ClaimStatusProps {
   venue: Venue;
 }
 
-// ─── Step indicator labels ───────────────────────────────────
-
-const ALL_STEPS: { key: Step; label: string }[] = [
-  { key: 'search', label: 'Look Up' },
-  { key: 'details', label: 'Details' },
-  { key: 'collection', label: 'Collection' },
-  { key: 'confirmation', label: 'Confirmed' },
-];
-
 export default function ClaimStatus({ venue }: ClaimStatusProps) {
   const [claimId, setClaimId] = useState<string>(() =>
-    typeof window !== 'undefined' ? sessionStorage.getItem('claimStatusId') || '' : ''
+    typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY_CLAIM_ID) || '' : ''
   );
   const [claim, setClaim] = useState<Claim | null>(() => {
     if (typeof window === 'undefined') return null;
     try {
-      const stored = sessionStorage.getItem('claimStatusResult');
+      const stored = sessionStorage.getItem(STORAGE_KEY_CLAIM_RESULT);
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -67,7 +59,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<Step>('search');
+  const [step, setStep] = useState<ClaimStep>('search');
   const [confirmationData, setConfirmationData] = useState<ConfirmationData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -77,7 +69,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
+    setTimeout(() => setCopiedField(null), CLIPBOARD_FEEDBACK_MS);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -93,7 +85,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
     try {
       const response = await customerApi.getClaimStatus(claimId.trim());
       setClaim(response.data);
-      sessionStorage.setItem('claimStatusResult', JSON.stringify(response.data));
+      sessionStorage.setItem(STORAGE_KEY_CLAIM_RESULT, JSON.stringify(response.data));
       setStep('details');
     } catch (err: any) {
       const status = err.response?.status;
@@ -208,7 +200,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
 
   // Determine which steps to show in the stepper
   const isApproved = claim?.status === 'approved';
-  const visibleSteps = isApproved ? ALL_STEPS : ALL_STEPS.slice(0, 2);
+  const visibleSteps = isApproved ? ALL_CLAIM_STEPS : ALL_CLAIM_STEPS.slice(0, 2);
   const stepIndex = visibleSteps.findIndex((s) => s.key === step);
 
   // ─── Render ─────────────────────────────────────────────────
@@ -282,7 +274,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                 value={claimId}
                 onChange={(e) => {
                   setClaimId(e.target.value);
-                  sessionStorage.setItem('claimStatusId', e.target.value);
+                  sessionStorage.setItem(STORAGE_KEY_CLAIM_ID, e.target.value);
                 }}
                 placeholder="e.g., 12345678-1234-1234-1234-123456789012"
                 className="w-full px-3 py-2 border border-sidebar-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white text-sidebar-900 placeholder-sidebar-400"
@@ -325,7 +317,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             {/* Back to search */}
             <button
               type="button"
-              onClick={() => { setClaim(null); setError(null); setStep('search'); sessionStorage.removeItem('claimStatusResult'); }}
+              onClick={() => { setClaim(null); setError(null); setStep('search'); sessionStorage.removeItem(STORAGE_KEY_CLAIM_RESULT); }}
               className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
             >
               <ArrowLeftIcon className="h-4 w-4 mr-1" />
@@ -361,7 +353,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                 </div>
                 {claim.payment_status !== 'completed' && (
                   <div className="md:col-span-2 text-xs text-sidebar-500">
-                    A &pound;9.00 platform fee applies to all claims.
+                    A &pound;{PLATFORM_FEE.toFixed(2)} platform fee applies to all claims.
                   </div>
                 )}
               </div>

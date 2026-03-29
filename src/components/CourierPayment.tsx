@@ -7,8 +7,9 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
-import { loadStripe, type Stripe as StripeType } from '@stripe/stripe-js';
+import { type Stripe as StripeType } from '@stripe/stripe-js';
 import { customerApi, getErrorMessage } from '@/lib/api';
+import { getStripe } from '@/lib/stripe';
 import ErrorBanner from '@/components/ErrorBanner';
 import { CourierQuote } from '@/types';
 import {
@@ -17,6 +18,7 @@ import {
   TruckIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
+import { STRIPE_APPEARANCE, STRIPE_REDIRECT_MODE, STRIPE_SUCCESS_STATUS, STRIPE_UNEXPECTED_STATE_CODE } from '@/constants/stripe';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -37,42 +39,6 @@ interface CourierPaymentProps {
     payment_intent_id: string;
   }) => void;
   onCancel: () => void;
-}
-
-// ─── Stripe loader (singleton) ──────────────────────────────────────────
-
-let stripePromise: Promise<StripeType | null> | null = null;
-
-async function getStripe(): Promise<StripeType | null> {
-  // Don't cache a failed/null result — only cache a successful Stripe instance
-  if (stripePromise) {
-    const cached = await stripePromise;
-    if (cached) return cached;
-    // Previous attempt failed, retry
-    stripePromise = null;
-  }
-
-  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-
-  if (pk) {
-    stripePromise = loadStripe(pk);
-    return stripePromise;
-  }
-
-  // Fallback: fetch publishable key from backend
-  try {
-    const res = await customerApi.getStripeConfig();
-    const key = res?.data?.publishableKey;
-    if (key) {
-      stripePromise = loadStripe(key);
-      return stripePromise;
-    }
-    console.error('[CourierPayment] Backend returned empty Stripe publishable key');
-    return null;
-  } catch (err) {
-    console.error('[CourierPayment] Failed to fetch Stripe config from backend:', err);
-    return null;
-  }
 }
 
 // ─── Inner checkout form (runs inside <Elements>) ──────────────────────
@@ -118,13 +84,13 @@ function CheckoutForm({
         confirmParams: {
           return_url: window.location.href, // fallback if redirect needed
         },
-        redirect: 'if_required', // stay on page when possible
+        redirect: STRIPE_REDIRECT_MODE, // stay on page when possible
       });
 
       // Handle the "already succeeded" case (e.g. React strict mode duplicate)
       if (
         stripeError &&
-        stripeError.code === 'payment_intent_unexpected_state' &&
+        stripeError.code === STRIPE_UNEXPECTED_STATE_CODE &&
         (stripeError as any).payment_intent?.status === 'succeeded'
       ) {
         // PI already succeeded — proceed with booking
@@ -154,7 +120,7 @@ function CheckoutForm({
         return;
       }
 
-      if (!paymentIntent || paymentIntent.status !== 'succeeded') {
+      if (!paymentIntent || paymentIntent.status !== STRIPE_SUCCESS_STATUS) {
         console.error('[CourierPayment] Payment not succeeded:', paymentIntent?.status);
         setError(`Payment was not completed (status: ${paymentIntent?.status || 'unknown'}). Please try again.`);
         setProcessing(false);
@@ -390,13 +356,7 @@ export default function CourierPayment({
       stripe={stripeInstance}
       options={{
         clientSecret,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: '#2563eb',
-            borderRadius: '8px',
-          },
-        },
+        appearance: STRIPE_APPEARANCE,
       }}
     >
       <CheckoutForm

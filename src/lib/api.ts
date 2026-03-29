@@ -1,14 +1,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import CryptoJS from 'crypto-js';
+import { API_TIMEOUT_MS, API_MAX_RETRIES, API_RETRY_DELAY_MS, ERROR_MESSAGES } from '@/constants/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
-
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: API_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,8 +26,8 @@ api.interceptors.response.use(
 
     if (isRetryable) {
       config.__retryCount = (config.__retryCount || 0) + 1;
-      if (config.__retryCount <= MAX_RETRIES) {
-        const delay = RETRY_DELAY_MS * Math.pow(2, config.__retryCount - 1);
+      if (config.__retryCount <= API_MAX_RETRIES) {
+        const delay = API_RETRY_DELAY_MS * Math.pow(2, config.__retryCount - 1);
         await new Promise((resolve) => setTimeout(resolve, delay));
         return api.request(config);
       }
@@ -38,11 +36,11 @@ api.interceptors.response.use(
     // Normalize error message for components
     let message: string;
     if (error.code === 'ECONNABORTED') {
-      message = 'The request took too long. Please try again.';
+      message = ERROR_MESSAGES.TIMEOUT;
     } else if (!error.response) {
-      message = 'Unable to connect. Please check your internet connection and try again.';
+      message = ERROR_MESSAGES.NETWORK;
     } else if (error.response.status >= 500) {
-      message = 'Something went wrong on our end. Please try again shortly.';
+      message = ERROR_MESSAGES.SERVER;
     } else {
       const data = error.response.data as Record<string, unknown> | undefined;
       const details = data?.details;
@@ -56,7 +54,7 @@ api.interceptors.response.use(
         message =
           (data?.error as string) ||
           (data?.message as string) ||
-          'An unexpected error occurred. Please try again.';
+          ERROR_MESSAGES.UNEXPECTED;
       }
     }
 
@@ -83,7 +81,7 @@ export function getErrorMessage(err: unknown): string {
     return (data?.error as string) || (data?.message as string) || err.message;
   }
   if (err instanceof Error) return err.message;
-  return 'An unexpected error occurred. Please try again.';
+  return ERROR_MESSAGES.UNEXPECTED;
 }
 
 /** Extract raw field-level error details from a backend response, if any */

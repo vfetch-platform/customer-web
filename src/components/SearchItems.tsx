@@ -1,100 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Item } from '@/types';
 import { MagnifyingGlassIcon, CheckCircleIcon, LightBulbIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { ProgressSteps } from './ProgressSteps';
-
-const DESCRIPTION_HARD_MIN_WORDS = 3;
-const DESCRIPTION_HARD_MIN_CHARS = 15;
-const DESCRIPTION_SOFT_MIN_WORDS = 8;
-const DESCRIPTION_SOFT_MIN_CHARS = 40;
-
-const COLOR_WORDS = new Set([
-  'black', 'white', 'red', 'blue', 'green', 'brown', 'grey', 'gray',
-  'silver', 'gold', 'pink', 'navy', 'orange', 'purple', 'yellow', 'beige', 'tan',
-]);
-
-const LOCATION_WORDS = new Set([
-  'room', 'lobby', 'pool', 'bar', 'restaurant', 'gym', 'conference',
-  'reception', 'spa', 'lounge', 'hallway', 'elevator', 'bathroom', 'terrace',
-  'beach', 'parking', 'floor',
-]);
-
-const EXAMPLE_QUERIES = [
-  'Black iPhone 14 Pro in a blue silicone case, last seen at the pool area',
-  "Navy blue North Face jacket, men's size large, left in conference room B",
-  'Silver Ray-Ban Aviator sunglasses in a brown leather case',
-];
-
-const getWordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
-
-const isBelowHardMin = (text: string) =>
-  getWordCount(text) < DESCRIPTION_HARD_MIN_WORDS || text.trim().length < DESCRIPTION_HARD_MIN_CHARS;
-
-const isBelowSoftMin = (text: string) =>
-  getWordCount(text) < DESCRIPTION_SOFT_MIN_WORDS || text.trim().length < DESCRIPTION_SOFT_MIN_CHARS;
-
-const getMissingSuggestions = (text: string): string[] => {
-  const lower = text.toLowerCase();
-  const words = lower.split(/\s+/);
-  const suggestions: string[] = [];
-
-  if (!words.some(w => COLOR_WORDS.has(w))) {
-    suggestions.push('+ Add a colour');
-  }
-  const capitalizedWords = text.match(/\b[A-Z][a-z]{2,}\b/g) || [];
-  const hasBrand = capitalizedWords.some(w => {
-    const lw = w.toLowerCase();
-    return !COLOR_WORDS.has(lw) && !['the', 'this', 'that', 'with', 'from', 'left', 'last', 'seen', 'near', 'lost', 'found', 'maybe', 'about', 'some', 'please', 'help'].includes(lw);
-  }) || /brand|make/i.test(text);
-  if (!hasBrand) {
-    suggestions.push('+ Add brand or make');
-  }
-  if (!/\b(small|medium|large|x+l|xs|size|\d{1,2}\s*(pro|max|mini|plus|inch|cm))/i.test(text)) {
-    suggestions.push('+ Add size or model');
-  }
-  if (!words.some(w => LOCATION_WORDS.has(w))) {
-    suggestions.push('+ Where you last saw it');
-  }
-  return suggestions;
-};
+import { EXAMPLE_QUERIES, DEFAULT_SEARCH_FORM_DATA, DESCRIPTION_TRUNCATION_THRESHOLD, SearchFormData } from '@/constants/search';
+import { STORAGE_KEY_SEARCH_FORM } from '@/constants/storage';
+import { EMAIL_REGEX } from '@/constants/regex';
+import { isBelowHardMin, isBelowSoftMin, getMissingSuggestions } from '@/lib/validation';
 
 interface SearchItemsProps {
   venue: Venue;
 }
 
-const SEARCH_FORM_STORAGE_KEY = 'searchItemsFormData';
-
-const defaultFormData = {
-  name: '',
-  email: '',
-  phone: '',
-  location: '',
-  checkinDate: '',
-  checkoutDate: '',
-  bookingReference: '',
-  itemDescription: '',
-};
-
 export default function SearchItems({ venue }: SearchItemsProps) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [formData, setFormData] = useState<typeof defaultFormData>(() => {
+  const [formData, setFormData] = useState<SearchFormData>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = sessionStorage.getItem(SEARCH_FORM_STORAGE_KEY);
-        if (stored) return { ...defaultFormData, ...JSON.parse(stored) };
+        const stored = sessionStorage.getItem(STORAGE_KEY_SEARCH_FORM);
+        if (stored) return { ...DEFAULT_SEARCH_FORM_DATA, ...JSON.parse(stored) };
       } catch { /* ignore */ }
     }
-    return defaultFormData;
+    return DEFAULT_SEARCH_FORM_DATA;
   });
   const [matchedItems, setMatchedItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [queryId, setQueryId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [claimId, setClaimId] = useState<string | null>(null);
+  const claimSuccessRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [descriptionTouched, setDescriptionTouched] = useState(false);
   const [descriptionWarningDismissed, setDescriptionWarningDismissed] = useState(false);
@@ -102,8 +39,14 @@ export default function SearchItems({ venue }: SearchItemsProps) {
 
   // Persist form data to sessionStorage across tab switches
   useEffect(() => {
-    sessionStorage.setItem(SEARCH_FORM_STORAGE_KEY, JSON.stringify(formData));
+    sessionStorage.setItem(STORAGE_KEY_SEARCH_FORM, JSON.stringify(formData));
   }, [formData]);
+
+  useEffect(() => {
+    if (claimId && claimSuccessRef.current) {
+      claimSuccessRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [claimId]);
 
   // Track which item descriptions are expanded
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
@@ -162,7 +105,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
     if (!formData.name.trim()) errors.name = 'Full name is required';
     if (!formData.email.trim()) {
       errors.email = 'Email address is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+    } else if (!EMAIL_REGEX.test(formData.email.trim())) {
       errors.email = 'Please enter a valid email address';
     }
     if (!formData.checkinDate) errors.checkinDate = 'Check-in date is required';
@@ -241,7 +184,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
       );
       setClaimId(response.data.id);
       setSelectedItem(item);
-      sessionStorage.removeItem(SEARCH_FORM_STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY_SEARCH_FORM);
     } catch (err: unknown) {
       console.error('Error creating claim:', err);
       setError(getErrorMessage(err));
@@ -661,7 +604,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                         >
                           {item.description}
                         </p>
-                        {item.description && item.description.length > 140 && (
+                        {item.description && item.description.length > DESCRIPTION_TRUNCATION_THRESHOLD && (
                           <button
                             type="button"
                             onClick={() =>
@@ -737,7 +680,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
       </div>
       
       {claimId && (
-        <div className="mt-6 relative overflow-hidden rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-6">
+        <div ref={claimSuccessRef} className="mt-6 relative overflow-hidden rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-6">
           <div className="absolute -right-20 -top-20 w-60 h-60 rounded-full bg-green-200/20 blur-3xl pointer-events-none" />
           <div className="absolute -left-10 bottom-0 w-48 h-48 rounded-full bg-emerald-200/10 blur-2xl pointer-events-none" />
           <div className="relative flex flex-col md:flex-row md:items-start gap-6">

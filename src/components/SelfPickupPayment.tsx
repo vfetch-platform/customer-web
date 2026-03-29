@@ -7,48 +7,17 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
-import { loadStripe, type Stripe as StripeType } from '@stripe/stripe-js';
+import { type Stripe as StripeType } from '@stripe/stripe-js';
 import { customerApi, getErrorMessage } from '@/lib/api';
+import { getStripe } from '@/lib/stripe';
 import ErrorBanner from '@/components/ErrorBanner';
+import { STRIPE_APPEARANCE, STRIPE_REDIRECT_MODE, STRIPE_SUCCESS_STATUS, STRIPE_UNEXPECTED_STATE_CODE } from '@/constants/stripe';
 import {
   CurrencyPoundIcon,
   ShieldCheckIcon,
   CheckCircleIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
-
-// ─── Stripe loader (singleton) ──────────────────────────────────────────
-
-let stripePromise: Promise<StripeType | null> | null = null;
-
-async function getStripe(): Promise<StripeType | null> {
-  if (stripePromise) {
-    const cached = await stripePromise;
-    if (cached) return cached;
-    stripePromise = null;
-  }
-
-  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-
-  if (pk) {
-    stripePromise = loadStripe(pk);
-    return stripePromise;
-  }
-
-  try {
-    const res = await customerApi.getStripeConfig();
-    const key = res?.data?.publishableKey;
-    if (key) {
-      stripePromise = loadStripe(key);
-      return stripePromise;
-    }
-    console.error('[SelfPickupPayment] Backend returned empty Stripe publishable key');
-    return null;
-  } catch (err) {
-    console.error('[SelfPickupPayment] Failed to fetch Stripe config:', err);
-    return null;
-  }
-}
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -91,12 +60,12 @@ function CheckoutForm({
         confirmParams: {
           return_url: window.location.href,
         },
-        redirect: 'if_required',
+        redirect: STRIPE_REDIRECT_MODE,
       });
 
       if (
         stripeError &&
-        stripeError.code === 'payment_intent_unexpected_state' &&
+        stripeError.code === STRIPE_UNEXPECTED_STATE_CODE &&
         (stripeError as any).payment_intent?.status === 'succeeded'
       ) {
         const succeededPiId = (stripeError as any).payment_intent.id;
@@ -113,7 +82,7 @@ function CheckoutForm({
         return;
       }
 
-      if (!paymentIntent || paymentIntent.status !== 'succeeded') {
+      if (!paymentIntent || paymentIntent.status !== STRIPE_SUCCESS_STATUS) {
         setError(`Payment was not completed (status: ${paymentIntent?.status || 'unknown'}). Please try again.`);
         setProcessing(false);
         return;
@@ -306,13 +275,7 @@ export default function SelfPickupPayment({
       stripe={stripeInstance}
       options={{
         clientSecret,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: '#2563eb',
-            borderRadius: '8px',
-          },
-        },
+        appearance: STRIPE_APPEARANCE,
       }}
     >
       <CheckoutForm
