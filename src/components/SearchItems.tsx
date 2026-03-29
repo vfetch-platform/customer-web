@@ -37,13 +37,13 @@ const isBelowHardMin = (text: string) =>
 const isBelowSoftMin = (text: string) =>
   getWordCount(text) < DESCRIPTION_SOFT_MIN_WORDS || text.trim().length < DESCRIPTION_SOFT_MIN_CHARS;
 
-const getMissingSuggestions = (text: string): { label: string; suffix: string }[] => {
+const getMissingSuggestions = (text: string): string[] => {
   const lower = text.toLowerCase();
   const words = lower.split(/\s+/);
-  const suggestions: { label: string; suffix: string }[] = [];
+  const suggestions: string[] = [];
 
   if (!words.some(w => COLOR_WORDS.has(w))) {
-    suggestions.push({ label: '+ Add a colour', suffix: ', [colour?]' });
+    suggestions.push('+ Add a colour');
   }
   const capitalizedWords = text.match(/\b[A-Z][a-z]{2,}\b/g) || [];
   const hasBrand = capitalizedWords.some(w => {
@@ -51,13 +51,13 @@ const getMissingSuggestions = (text: string): { label: string; suffix: string }[
     return !COLOR_WORDS.has(lw) && !['the', 'this', 'that', 'with', 'from', 'left', 'last', 'seen', 'near', 'lost', 'found', 'maybe', 'about', 'some', 'please', 'help'].includes(lw);
   }) || /brand|make/i.test(text);
   if (!hasBrand) {
-    suggestions.push({ label: '+ Add brand or make', suffix: ', [brand?]' });
+    suggestions.push('+ Add brand or make');
   }
   if (!/\b(small|medium|large|x+l|xs|size|\d{1,2}\s*(pro|max|mini|plus|inch|cm))/i.test(text)) {
-    suggestions.push({ label: '+ Add size or model', suffix: ', [size/model?]' });
+    suggestions.push('+ Add size or model');
   }
   if (!words.some(w => LOCATION_WORDS.has(w))) {
-    suggestions.push({ label: '+ Where you last saw it', suffix: ', last seen at [location?]' });
+    suggestions.push('+ Where you last saw it');
   }
   return suggestions;
 };
@@ -146,29 +146,6 @@ export default function SearchItems({ venue }: SearchItemsProps) {
     }
   };
 
-  const handleExampleClick = (example: string) => {
-    setFormData(prev => ({ ...prev, itemDescription: example }));
-    setDescriptionTouched(false);
-    setDescriptionWarningDismissed(false);
-    document.getElementById('itemDescription')?.focus();
-  };
-
-  const handleSuggestionClick = (suffix: string) => {
-    const newText = formData.itemDescription.trimEnd() + suffix;
-    setFormData(prev => ({ ...prev, itemDescription: newText }));
-    const bracketStart = newText.lastIndexOf('[');
-    const bracketEnd = newText.lastIndexOf(']') + 1;
-    setTimeout(() => {
-      const el = document.getElementById('itemDescription') as HTMLTextAreaElement | null;
-      if (el) {
-        el.focus();
-        if (bracketStart > -1) {
-          el.setSelectionRange(bracketStart, bracketEnd);
-        }
-      }
-    }, 0);
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -188,7 +165,6 @@ export default function SearchItems({ venue }: SearchItemsProps) {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
       errors.email = 'Please enter a valid email address';
     }
-    if (!formData.location.trim()) errors.location = 'Location is required';
     if (!formData.checkinDate) errors.checkinDate = 'Check-in date is required';
     if (!formData.checkoutDate) errors.checkoutDate = 'Check-out date is required';
     if (formData.checkinDate && formData.checkoutDate && new Date(formData.checkoutDate) < new Date(formData.checkinDate)) {
@@ -241,7 +217,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
       setQueryId(queryResponse.data.id);
 
       // Get AI-matched items with 85%+ similarity
-      const matchesResponse = await customerApi.getMatchedItems(queryResponse.data.id, 1);
+      const matchesResponse = await customerApi.getMatchedItems(queryResponse.data.id);
       setMatchedItems(matchesResponse.data);
       setStep(2);
     } catch (err: unknown) {
@@ -360,23 +336,19 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                   </label>
                 </div>
                 
-                <div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="location"
-                      name="location"
-                      required
-                      value={formData.location}
-                      onChange={handleInputChange}
-                      className={`peer w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white ${fieldErrors.location ? 'border-red-400' : 'border-gray-200'}`}
-                      placeholder="Room 204, Conference Hall A"
-                    />
-                    <label htmlFor="location" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
-                      Location/Room Number *
-                    </label>
-                  </div>
-                  {fieldErrors.location && <p className="text-sm text-red-600 mt-1">{fieldErrors.location}</p>}
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    className="peer w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors placeholder-transparent text-gray-900 bg-white"
+                    placeholder="Room 204"
+                  />
+                  <label htmlFor="location" className="absolute left-4 -top-2.5 bg-white px-2 text-sm font-medium text-gray-700 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-3 peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-600">
+                    Room Number
+                  </label>
                 </div>
               </div>
             </div>
@@ -502,21 +474,19 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Examples</p>
                   <div className="flex flex-col gap-2">
                     {EXAMPLE_QUERIES.map((example, i) => (
-                      <button
+                      <p
                         key={i}
-                        type="button"
-                        onClick={() => handleExampleClick(example)}
-                        className="text-left text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg px-3 py-2 border border-transparent hover:border-blue-200 transition-colors"
+                        className="text-sm text-gray-500 rounded-lg px-3 py-2"
                       >
                         &ldquo;{example}&rdquo;
-                      </button>
+                      </p>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* "Improve your search" nudge banner - only after typing + submitting a short query */}
-              {descriptionTouched && formData.itemDescription.trim().length > 0 && isBelowSoftMin(formData.itemDescription) && !isBelowHardMin(formData.itemDescription) && descriptionWarningDismissed && (
+              {/* "Improve your search" nudge banner - show when description passes hard min but is below soft min */}
+              {formData.itemDescription.trim().length > 0 && isBelowSoftMin(formData.itemDescription) && !isBelowHardMin(formData.itemDescription) && (
                 <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
                   <LightBulbIcon className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
@@ -526,18 +496,11 @@ export default function SearchItems({ venue }: SearchItemsProps) {
                     <p className="text-xs text-amber-700 mb-3">
                       Adding more detail helps our AI find your item faster. Try including:
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <ul className="list-disc list-inside text-xs text-amber-700 space-y-1">
                       {getMissingSuggestions(formData.itemDescription).map((suggestion, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => handleSuggestionClick(suggestion.suffix)}
-                          className="inline-flex items-center text-xs font-medium bg-white text-amber-800 border border-amber-300 rounded-full px-3 py-1.5 hover:bg-amber-100 hover:border-amber-400 transition-colors"
-                        >
-                          {suggestion.label}
-                        </button>
+                        <li key={i}>{suggestion.replace(/^\+ /, '')}</li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
                 </div>
               )}
