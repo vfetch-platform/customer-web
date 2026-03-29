@@ -3,7 +3,7 @@ const nextConfig = {
   images: {
     domains: [
       'localhost',
-      'vfetch-mvp-images-test.s3.eu-west-1.amazonaws.com', // Added S3 bucket
+      'images.vfetch.co.uk',
     ],
   },
   env: {
