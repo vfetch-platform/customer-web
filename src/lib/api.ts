@@ -155,8 +155,8 @@ export const customerApi = {
   },
 
   // Get AI-matched items (Step 1)
-  getMatchedItems: async (queryId: string, threshold: number = 85) => {
-    const response = await api.get(`/queries/${queryId}/matches?threshold=${threshold}`);
+  getMatchedItems: async (queryId: string) => {
+    const response = await api.get(`/queries/${queryId}/matches`);
     return response.data;
   },
 
