@@ -79,3 +79,12 @@ export interface CourierQuote {
   };
 }
 
+export interface DeliveryTracking {
+  status: string;
+  updates: {
+    timestamp: string;
+    status: string;
+    location: string;
+    description: string;
+  }[];
+}
