@@ -18,6 +18,8 @@ import {
   BoltIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
+import { PLATFORM_FEE, MAX_ITEM_VALUE } from '@/constants/fees';
+import { UK_POSTCODE_REGEX } from '@/constants/regex';
 
 interface BookingResult {
   booking_id: string;
@@ -33,7 +35,6 @@ interface CollectionMethodsProps {
   onSelfPickupConfirmed?: (paymentIntentId: string) => void;
   onBack?: () => void;
 }
-const PLATFORM_FEE=9.99; // Flat platform fee for all courier bookings, can be moved to config later
 export default function CollectionMethods({ claim, venue, onCourierBooked, onSelfPickupConfirmed, onBack }: CollectionMethodsProps) {
   const [selectedMethod, setSelectedMethod] = useState<'self_pickup' | 'parcel2go' | 'uber_courier' | null>(null);
   // Raw delivery address string used for API calls (assembled from form for parcel2go or textarea for uber)
@@ -168,7 +169,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
       let postcode = (vals.postalCode || '').trim();
       if (postcode) {
         const compact = postcode.replace(/\s+/g, '').toUpperCase();
-        if (/^[A-Z]{1,2}[0-9][0-9A-Z]?[0-9][A-Z]{2}$/.test(compact)) {
+        if (UK_POSTCODE_REGEX.test(compact)) {
           postcode = `${compact.slice(0, compact.length - 3)} ${compact.slice(-3)}`;
         } else {
           postcode = vals.postalCode || '';
@@ -414,7 +415,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Used for insurance purposes. Maximum &pound;10,000.
+                    Used for insurance purposes. Maximum &pound;{MAX_ITEM_VALUE.toLocaleString()}.
                   </p>
                 </div>
                 <button

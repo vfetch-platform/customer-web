@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
+import { COUNTRIES } from '@/constants/countries';
+import { EMAIL_REGEX } from '@/constants/regex';
 
 // Ambient declaration fallback if @types/google.maps isn't installed
 // (Consider installing: npm i -D @types/google.maps)
@@ -34,10 +36,6 @@ export interface AddressFormValues {
   phone: string;
   email: string;
 }
-
-const COUNTRIES = [
-  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Netherlands', 'Spain', 'Italy', 'Ireland', 'Sweden', 'Norway', 'Denmark', 'Belgium', 'Switzerland', 'Austria', 'Portugal', 'Greece', 'Poland', 'Czech Republic', 'Finland', 'New Zealand'
-];
 
 export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   stepNumber = 3,
@@ -153,7 +151,7 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   required.forEach(f => {
     if (!values[f]?.trim()) errors[f] = 'Required';
   });
-  if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) errors.email = 'Invalid email';
+  if (values.email && !EMAIL_REGEX.test(values.email)) errors.email = 'Invalid email';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
