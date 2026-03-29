@@ -37,23 +37,6 @@ export interface Item {
   created_at: string;
 }
 
-export interface Query {
-  id: string;
-  email_hash: string;
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  dates_of_stay: {
-    checkin: string;
-    checkout: string;
-  };
-  booking_reference?: string;
-  item_description: string;
-  venue_id: string;
-  created_at: string;
-}
-
 export interface Claim {
   id: string;
   item_id: string;
@@ -96,12 +79,3 @@ export interface CourierQuote {
   };
 }
 
-export interface DeliveryTracking {
-  status: string;
-  updates: {
-    timestamp: string;
-    status: string;
-    location: string;
-    description: string;
-  }[];
-}
