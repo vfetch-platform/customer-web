@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { customerApi } from '@/lib/api';
 import { Venue, Claim } from '@/types';
 import CollectionMethods from './CollectionMethods';
@@ -224,30 +224,34 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               {/* Status description */}
               <p className="text-on-secondary-container mb-8">{getStatusDescription(claim.status)}</p>
 
-              {/* Progress Stepper */}
-              <div className="relative">
-                <div className="absolute top-5 left-0 w-full h-[2px] bg-outline-variant/20 -z-0 hidden md:block" />
-                <div className={`grid grid-cols-1 md:grid-cols-${visibleSteps.length} gap-8 relative z-10`}>
-                  {visibleSteps.map((s, i) => {
-                    const isCompleted = i < stepIndex;
-                    const isActive = s.key === step;
-                    const isUpcoming = i > stepIndex;
-                    return (
-                      <div key={s.key} className={`flex flex-col items-start md:items-center text-left md:text-center group ${isUpcoming ? 'opacity-50' : ''}`}>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-4 ring-8 ring-surface-container-lowest transition-transform group-hover:scale-110 ${
+              {/* Progress Stepper — Horizontal */}
+              <div className="flex items-start w-full">
+                {visibleSteps.map((s, i) => {
+                  const isCompleted = i < stepIndex;
+                  const isActive = s.key === step;
+                  const isUpcoming = i > stepIndex;
+                  return (
+                    <React.Fragment key={s.key}>
+                      {/* Connector line (vertically centered on circle) */}
+                      {i > 0 && (
+                        <div className={`flex-1 h-[2px] mt-5 ${isCompleted || isActive ? 'bg-tertiary-fixed/40' : 'bg-outline-variant/10'}`} />
+                      )}
+                      {/* Step: circle + label */}
+                      <div className={`flex flex-col items-center flex-shrink-0 ${isUpcoming ? 'opacity-40' : ''}`} style={{ width: '5rem' }}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                           isCompleted ? 'bg-tertiary-fixed text-on-tertiary-fixed' :
-                          isActive ? 'bg-surface-tint text-white animate-pulse shadow-lg shadow-surface-tint/30' :
+                          isActive ? 'bg-surface-tint text-white shadow-lg shadow-surface-tint/30' :
                           'bg-surface-container-highest text-outline'
                         }`}>
-                          <span className="material-symbols-outlined text-xl">
-                            {isCompleted ? 'check_circle' : isActive ? 'radio_button_checked' : 'circle'}
+                          <span className="material-symbols-outlined text-xl" style={isCompleted ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+                            {isCompleted ? 'check' : isActive ? 'radio_button_checked' : 'circle'}
                           </span>
                         </div>
-                        <h4 className="font-headline font-bold text-sm text-primary mb-1">{s.label}</h4>
+                        <h4 className={`mt-2 font-headline font-bold text-xs text-center ${isActive ? 'text-surface-tint' : isCompleted ? 'text-on-tertiary-fixed-variant' : 'text-on-secondary-container'}`}>{s.label}</h4>
                       </div>
-                    );
-                  })}
-                </div>
+                    </React.Fragment>
+                  );
+                })}
               </div>
 
               {/* Claim details grid */}

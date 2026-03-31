@@ -12,7 +12,7 @@ export default function LostAndFoundPage() {
   const venueId = params.venueId as string;
 
   const [venue, setVenue] = useState<Venue | null>(null);
-  const [activeTab, setActiveTab] = useState<'search' | 'status'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'status' | 'how'>('search');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,37 +73,36 @@ export default function LostAndFoundPage() {
     <div className="min-h-screen bg-surface">
       {/* Glassmorphic Top Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-[#f3faff]/80 backdrop-blur-md shadow-[0px_24px_48px_rgba(7,30,39,0.06)]">
-        <div className="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-8">
-            <img src="/favicon-nobg.svg" alt="VFetch" className="h-8 w-auto" />
-            <div className="hidden md:flex gap-6">
-              <button
-                onClick={() => setActiveTab('search')}
-                className={`font-headline font-bold tracking-tight transition-all duration-200 ${
-                  activeTab === 'search'
-                    ? 'text-surface-tint border-b-2 border-surface-tint pb-1'
-                    : 'text-on-secondary-container hover:text-primary'
-                }`}
-              >
-                Find Item
-              </button>
-              <button
-                onClick={() => setActiveTab('status')}
-                className={`font-headline font-bold tracking-tight transition-all duration-200 ${
-                  activeTab === 'status'
-                    ? 'text-surface-tint border-b-2 border-surface-tint pb-1'
-                    : 'text-on-secondary-container hover:text-primary'
-                }`}
-              >
-                Track Status
-              </button>
-              <span className="text-on-secondary-container font-headline font-bold tracking-tight cursor-default">
-                How it Works
-              </span>
+        <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
+          {/* Logo + Nav links */}
+          <div className="flex items-center gap-10">
+            <div className="flex items-center gap-2.5">
+              <img src="/favicon-nobg.svg" alt="VFetch" className="h-8 w-auto" />
+              <span className="font-headline font-extrabold text-lg text-primary tracking-tight">VFetch</span>
+            </div>
+            <div className="hidden md:flex items-center gap-8">
+              {([
+                { key: 'search' as const, label: 'Find Item' },
+                { key: 'status' as const, label: 'Track Status' },
+                { key: 'how' as const, label: 'How it Works' },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`font-body font-semibold text-sm tracking-tight transition-all duration-200 pb-1 ${
+                    activeTab === tab.key
+                      ? 'text-surface-tint border-b-2 border-surface-tint'
+                      : 'text-on-secondary-container hover:text-primary border-b-2 border-transparent'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
+          {/* Right side */}
           <div className="flex items-center gap-4">
-            <button className="text-on-secondary-container hover:opacity-80 transition-all duration-200 font-headline font-bold tracking-tight">
+            <button className="text-on-secondary-container hover:text-primary transition-all duration-200 font-body font-semibold text-sm">
               Support
             </button>
             {venue.logo && (
@@ -119,26 +118,23 @@ export default function LostAndFoundPage() {
         </div>
         {/* Mobile tab bar */}
         <div className="md:hidden flex border-t border-outline-variant/10">
-          <button
-            onClick={() => setActiveTab('search')}
-            className={`flex-1 py-3 text-center text-sm font-headline font-bold ${
-              activeTab === 'search'
-                ? 'text-surface-tint border-b-2 border-surface-tint'
-                : 'text-on-secondary-container'
-            }`}
-          >
-            Find Item
-          </button>
-          <button
-            onClick={() => setActiveTab('status')}
-            className={`flex-1 py-3 text-center text-sm font-headline font-bold ${
-              activeTab === 'status'
-                ? 'text-surface-tint border-b-2 border-surface-tint'
-                : 'text-on-secondary-container'
-            }`}
-          >
-            Track Status
-          </button>
+          {([
+            { key: 'search' as const, label: 'Find Item' },
+            { key: 'status' as const, label: 'Track Status' },
+            { key: 'how' as const, label: 'How it Works' },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 py-3 text-center text-sm font-body font-semibold ${
+                activeTab === tab.key
+                  ? 'text-surface-tint border-b-2 border-surface-tint'
+                  : 'text-on-secondary-container'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </nav>
 
@@ -146,6 +142,76 @@ export default function LostAndFoundPage() {
       <div>
         {activeTab === 'search' && <SearchItems venue={venue} />}
         {activeTab === 'status' && <ClaimStatus venue={venue} />}
+        {activeTab === 'how' && (
+          <main className="pt-32 pb-20 px-6 min-h-screen">
+            <div className="max-w-4xl mx-auto">
+              {/* Header */}
+              <header className="text-center mb-16">
+                <h1 className="font-headline text-5xl font-extrabold text-primary tracking-tight mb-4">How it Works</h1>
+                <p className="text-on-secondary-container text-lg max-w-xl mx-auto font-body">Our digital concierge guides you through every step — from reporting a lost item to getting it back safely.</p>
+              </header>
+
+              {/* Steps */}
+              <div className="space-y-6">
+                {[
+                  {
+                    number: '01',
+                    title: 'Describe Your Item',
+                    description: 'Tell us what you lost — include details like brand, colour, size, and where you last saw it. The more specific, the better our AI can match.',
+                    icon: 'edit_note',
+                  },
+                  {
+                    number: '02',
+                    title: 'AI Matches Your Item',
+                    description: 'Our system scans the venue\'s inventory of found items and uses AI matching to identify potential matches. You\'ll see results ranked by confidence.',
+                    icon: 'smart_toy',
+                  },
+                  {
+                    number: '03',
+                    title: 'Claim & Verify',
+                    description: 'Found a match? Submit a claim with your stay details. The venue team will verify your identity and approve the claim.',
+                    icon: 'verified',
+                  },
+                  {
+                    number: '04',
+                    title: 'Choose Collection',
+                    description: 'Pick up in person during venue collection hours, or choose premium courier delivery straight to your door via our logistics partners.',
+                    icon: 'local_shipping',
+                  },
+                  {
+                    number: '05',
+                    title: 'Reunited',
+                    description: 'Complete a small platform fee, and your item is on its way back to you. Track the status in real-time from this portal.',
+                    icon: 'celebration',
+                  },
+                ].map((s) => (
+                  <div key={s.number} className="bg-surface-container-lowest rounded-[2rem] p-8 md:p-10 editorial-shadow flex items-start gap-6">
+                    <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-surface-container flex items-center justify-center">
+                      <span className="material-symbols-outlined text-surface-tint text-2xl">{s.icon}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-bold text-surface-tint bg-surface-container rounded-full px-2.5 py-0.5 font-headline">{s.number}</span>
+                        <h3 className="font-headline text-xl font-bold text-primary">{s.title}</h3>
+                      </div>
+                      <p className="text-on-secondary-container font-body leading-relaxed">{s.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <div className="text-center mt-16">
+                <button
+                  onClick={() => setActiveTab('search')}
+                  className="hero-gradient text-white px-12 py-4 rounded-full font-headline font-bold text-lg shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all active:scale-95 duration-200"
+                >
+                  Start Searching
+                </button>
+              </div>
+            </div>
+          </main>
+        )}
       </div>
 
       {/* Footer */}
