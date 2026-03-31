@@ -4,6 +4,9 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Lost & Found - VFetch',
   description: 'Find your lost items with our AI-powered search platform',
+  icons: {
+    icon: '/favicon-nobg.svg',
+  },
 }
 
 export default function RootLayout({
