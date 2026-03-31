@@ -10,9 +10,9 @@ import ClaimStatus from '@/components/ClaimStatus';
 export default function LostAndFoundPage() {
   const params = useParams();
   const venueId = params.venueId as string;
-  
+
   const [venue, setVenue] = useState<Venue | null>(null);
-  const [activeTab, setActiveTab] = useState<'search' | 'status'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'status' | 'how'>('search');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,25 +38,29 @@ export default function LostAndFoundPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-2 border-surface-tint border-t-transparent animate-spin" />
+          <p className="font-body text-on-secondary-container text-sm">Loading venue...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !venue) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+      <div className="min-h-screen bg-surface flex items-center justify-center px-6">
+        <div className="text-center max-w-md bg-surface-container-lowest rounded-[2rem] p-12 editorial-shadow">
+          <span className="material-symbols-outlined text-6xl text-outline mb-4 block">error_outline</span>
+          <h1 className="font-headline text-2xl font-bold text-primary mb-3">
             {error || 'Venue not found'}
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-on-secondary-container font-body mb-8">
             Please check the URL and try again.
           </p>
           <button
             onClick={fetchVenue}
-            className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="bg-gradient-to-r from-primary to-primary-container text-white py-3 px-8 rounded-full font-headline font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10"
           >
             Try Again
           </button>
@@ -66,113 +70,186 @@ export default function LostAndFoundPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header with venue branding */}
-      <div 
-        className="bg-gradient-to-r from-blue-600 to-blue-800 text-white"
-        style={{
-          background: venue.branding_colors?.primary 
-            ? `linear-gradient(to right, ${venue.branding_colors.primary}, ${venue.branding_colors.secondary || venue.branding_colors.primary})`
-            : undefined
-        }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-surface">
+      {/* Glassmorphic Top Navigation */}
+      <nav className="fixed top-0 w-full z-50 bg-[#f3faff]/80 backdrop-blur-md shadow-[0px_24px_48px_rgba(7,30,39,0.06)]">
+        <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
+          {/* Logo + Nav links */}
+          <div className="flex items-center gap-10">
+            <div className="flex items-center gap-2.5">
+              <img src="/favicon-nobg.svg" alt="VFetch" className="h-8 w-auto" />
+              <span className="font-headline font-extrabold text-lg text-primary tracking-tight">VFetch</span>
+            </div>
+            <div className="hidden md:flex items-center gap-8">
+              {([
+                { key: 'search' as const, label: 'Find Item' },
+                { key: 'status' as const, label: 'Track Status' },
+                { key: 'how' as const, label: 'How it Works' },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`font-body font-semibold text-sm tracking-tight transition-all duration-200 pb-1 ${
+                    activeTab === tab.key
+                      ? 'text-surface-tint border-b-2 border-surface-tint'
+                      : 'text-on-secondary-container hover:text-primary border-b-2 border-transparent'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Right side */}
+          <div className="flex items-center gap-4">
+            <button className="text-on-secondary-container hover:text-primary transition-all duration-200 font-body font-semibold text-sm">
+              Support
+            </button>
             {venue.logo && (
-              <img 
-                src={venue.logo} 
-                alt={`${venue.name} logo`}
-                className="h-12 w-12 object-contain bg-white rounded p-1"
-              />
+              <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/10">
+                <img
+                  alt={`${venue.name} logo`}
+                  className="w-full h-full object-cover"
+                  src={venue.logo}
+                />
+              </div>
             )}
-            <div>
-              <h1 className="text-3xl font-bold">Lost & Found</h1>
-              <p className="text-blue-100">{venue.name}</p>
+          </div>
+        </div>
+        {/* Mobile tab bar */}
+        <div className="md:hidden flex border-t border-outline-variant/10">
+          {([
+            { key: 'search' as const, label: 'Find Item' },
+            { key: 'status' as const, label: 'Track Status' },
+            { key: 'how' as const, label: 'How it Works' },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 py-3 text-center text-sm font-body font-semibold ${
+                activeTab === tab.key
+                  ? 'text-surface-tint border-b-2 border-surface-tint'
+                  : 'text-on-secondary-container'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div>
+        {activeTab === 'search' && <SearchItems venue={venue} />}
+        {activeTab === 'status' && <ClaimStatus venue={venue} />}
+        {activeTab === 'how' && (
+          <main className="pt-32 pb-20 px-6 min-h-screen">
+            <div className="max-w-4xl mx-auto">
+              {/* Header */}
+              <header className="text-center mb-16">
+                <h1 className="font-headline text-5xl font-extrabold text-primary tracking-tight mb-4">How it Works</h1>
+                <p className="text-on-secondary-container text-lg max-w-xl mx-auto font-body">Our digital concierge guides you through every step — from reporting a lost item to getting it back safely.</p>
+              </header>
+
+              {/* Steps */}
+              <div className="space-y-6">
+                {[
+                  {
+                    number: '01',
+                    title: 'Describe Your Item',
+                    description: 'Tell us what you lost — include details like brand, colour, size, and where you last saw it. The more specific, the better our AI can match.',
+                    icon: 'edit_note',
+                  },
+                  {
+                    number: '02',
+                    title: 'AI Matches Your Item',
+                    description: 'Our system scans the venue\'s inventory of found items and uses AI matching to identify potential matches. You\'ll see results ranked by confidence.',
+                    icon: 'smart_toy',
+                  },
+                  {
+                    number: '03',
+                    title: 'Claim & Verify',
+                    description: 'Found a match? Submit a claim with your stay details. The venue team will verify your identity and approve the claim.',
+                    icon: 'verified',
+                  },
+                  {
+                    number: '04',
+                    title: 'Choose Collection',
+                    description: 'Pick up in person during venue collection hours, or choose premium courier delivery straight to your door via our logistics partners.',
+                    icon: 'local_shipping',
+                  },
+                  {
+                    number: '05',
+                    title: 'Reunited',
+                    description: 'Complete a small platform fee, and your item is on its way back to you. Track the status in real-time from this portal.',
+                    icon: 'celebration',
+                  },
+                ].map((s) => (
+                  <div key={s.number} className="bg-surface-container-lowest rounded-[2rem] p-8 md:p-10 editorial-shadow flex items-start gap-6">
+                    <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-surface-container flex items-center justify-center">
+                      <span className="material-symbols-outlined text-surface-tint text-2xl">{s.icon}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-bold text-surface-tint bg-surface-container rounded-full px-2.5 py-0.5 font-headline">{s.number}</span>
+                        <h3 className="font-headline text-xl font-bold text-primary">{s.title}</h3>
+                      </div>
+                      <p className="text-on-secondary-container font-body leading-relaxed">{s.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <div className="text-center mt-16">
+                <button
+                  onClick={() => setActiveTab('search')}
+                  className="hero-gradient text-white px-12 py-4 rounded-full font-headline font-bold text-lg shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all active:scale-95 duration-200"
+                >
+                  Start Searching
+                </button>
+              </div>
+            </div>
+          </main>
+        )}
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-[#dbf1fe] w-full rounded-t-[2rem] mt-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 px-12 py-16 max-w-7xl mx-auto font-body text-sm leading-relaxed text-primary">
+          <div className="space-y-6">
+            <img src="/favicon-nobg.svg" alt="VFetch" className="h-7 w-auto" />
+            <p className="opacity-70 max-w-xs">
+              Connecting lost treasures with their rightful owners through smart concierge technology.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <h4 className="font-headline font-bold text-lg mb-6">Quick Links</h4>
+            <ul className="space-y-3">
+              {venue.collection_hours && (
+                <li><span className="opacity-70 cursor-default">Collection Hours</span></li>
+              )}
+              <li><span className="opacity-70 cursor-default">Contact Venue</span></li>
+              <li><span className="opacity-70 cursor-default">Privacy Policy</span></li>
+              <li><span className="opacity-70 cursor-default">Terms of Service</span></li>
+            </ul>
+          </div>
+          <div className="space-y-6">
+            <h4 className="font-headline font-bold text-lg mb-6">Support</h4>
+            <p className="opacity-70">Need immediate assistance? Our 24/7 concierge desk is here to help.</p>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-primary-fixed/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary">phone_in_talk</span>
+              </div>
+              <span className="font-bold">{venue.phone || 'Contact Venue'}</span>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('search')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'search'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Search for Item
-            </button>
-            <button
-              onClick={() => setActiveTab('status')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'status'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Check Claim Status
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'search' && <SearchItems venue={venue} />}
-        {activeTab === 'status' && <ClaimStatus venue={venue} />}
-      </div>
-
-      {/* Footer with venue contact info */}
-      <footer className="bg-white border-t mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-              <div className="space-y-2 text-gray-600">
-                <p>{venue.address}</p>
-                <p>Phone: {venue.phone}</p>
-                <p>Email: {venue.email}</p>
-                {venue.website && (
-                  <p>
-                    Website: <a href={venue.website} className="text-blue-600 hover:underline">
-                      {venue.website}
-                    </a>
-                  </p>
-                )}
-              </div>
-            </div>
-            
-            {venue.collection_hours && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Collection Hours</h3>
-                <div className="space-y-1 text-gray-600">
-                  {Object.entries(venue.collection_hours).map(([day, hours]) => (
-                    <div key={day} className="flex justify-between">
-                      <span className="capitalize">{day}:</span>
-                      <span>
-                        {hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">How It Works</h3>
-              <ol className="space-y-2 text-gray-600 text-sm">
-                <li>1. Search for your lost item</li>
-                <li>2. Claim the item if found</li>
-                <li>3. Wait for venue approval</li>
-                <li>4. Choose collection method</li>
-                <li>5. Collect your item</li>
-              </ol>
-            </div>
+        <div className="px-12 pb-12 max-w-7xl mx-auto border-t border-primary/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="opacity-50 text-xs text-primary">© {new Date().getFullYear()} VFetch Hospitality. All rights reserved.</p>
+          <div className="flex gap-6 opacity-50">
+            <span className="material-symbols-outlined cursor-pointer hover:opacity-100 transition-opacity text-primary">language</span>
+            <span className="material-symbols-outlined cursor-pointer hover:opacity-100 transition-opacity text-primary">verified_user</span>
           </div>
         </div>
       </footer>

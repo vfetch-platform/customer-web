@@ -1,8 +1,9 @@
 export const STRIPE_APPEARANCE = {
   theme: 'stripe' as const,
   variables: {
-    colorPrimary: '#2563eb',
-    borderRadius: '8px',
+    colorPrimary: '#001944',
+    borderRadius: '12px',
+    fontFamily: 'Inter, sans-serif',
   },
 };
 

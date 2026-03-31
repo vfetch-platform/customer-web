@@ -168,68 +168,68 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-10">
       <div className="flex items-center gap-3">
         {!hideStepIndicator && (
-          <div className="w-9 h-9 rounded-full flex items-center justify-center font-semibold text-teal-700 bg-teal-100 ring-4 ring-white shadow-sm">{stepNumber}</div>
+          <span className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-headline font-bold text-sm">{String(stepNumber).padStart(2, '0')}</span>
         )}
-        <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-gray-900">{title}</h2>
+        <h2 className="font-headline text-xl md:text-2xl font-bold tracking-tight text-primary">{title}</h2>
       </div>
 
       {/* Contact details */}
       <div className="pt-2">
-        <p className="font-semibold text-gray-900 mb-4">Contact details:</p>
+        <p className="font-headline font-bold text-primary mb-4">Contact details:</p>
         <div className="grid gap-6 sm:grid-cols-2">
           <div>
-            <label className="form-label">Full Name (Name/Surname)*</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Full Name (Name/Surname)*</label>
             <input
               type="text"
               value={values.fullName}
               onChange={e => setField('fullName', e.target.value)}
               onBlur={() => markTouched('fullName')}
-              className={`w-full rounded-lg border bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm ${errors.fullName && touched.fullName ? 'border-red-400' : 'border-gray-200'}`}
+              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.fullName && touched.fullName ? 'border-error' : 'border-outline-variant/30'}`}
             />
-            {errors.fullName && touched.fullName && <p className="mt-1 text-xs text-red-600">{errors.fullName}</p>}
+            {errors.fullName && touched.fullName && <p className="mt-1 text-xs text-error">{errors.fullName}</p>}
           </div>
           <div>
-            <label className="form-label">Company name (if applicable)</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Company name (if applicable)</label>
             <input
               type="text"
               value={values.companyName}
               onChange={e => setField('companyName', e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm"
+              className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm"
             />
           </div>
           <div>
-            <label className="form-label">Mobile Phone (Local mobile phone number)*</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Mobile Phone (Local mobile phone number)*</label>
             <input
               type="tel"
               value={values.phone}
               onChange={e => setField('phone', e.target.value)}
               onBlur={() => markTouched('phone')}
               placeholder={values.country ? `+ Local ${values.country} number` : '+30123456789'}
-              className={`w-full rounded-lg border bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm ${errors.phone && touched.phone ? 'border-red-400' : 'border-gray-200'}`}
+              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.phone && touched.phone ? 'border-error' : 'border-outline-variant/30'}`}
             />
-            <p className="mt-1 text-xs text-gray-500">Local number to country of destination. <button type="button" className="text-teal-600 hover:underline">See why</button></p>
-            {errors.phone && touched.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+            <p className="mt-1 text-xs text-on-secondary-container">Local number to country of destination. <button type="button" className="text-surface-tint hover:underline">See why</button></p>
+            {errors.phone && touched.phone && <p className="mt-1 text-xs text-error">{errors.phone}</p>}
           </div>
           <div>
-            <label className="form-label">Email *</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Email *</label>
             <input
               type="email"
               value={values.email}
               onChange={e => setField('email', e.target.value)}
               onBlur={() => markTouched('email')}
-              className={`w-full rounded-lg border bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm ${errors.email && touched.email ? 'border-red-400' : 'border-gray-200'}`}
+              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.email && touched.email ? 'border-error' : 'border-outline-variant/30'}`}
             />
-            {errors.email && touched.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+            {errors.email && touched.email && <p className="mt-1 text-xs text-error">{errors.email}</p>}
           </div>
         </div>
       </div>
 
       {/* Google Maps Search */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Address Search</label>
+        <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-2">Address Search</label>
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <svg className="h-5 w-5 text-amber-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <svg className="h-5 w-5 text-surface-tint" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7Zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5Z" />
             </svg>
           </div>
@@ -239,21 +239,21 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
             defaultValue={values.searchAddress}
             placeholder="Start typing the address"
             autoComplete="off"
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-teal-500 focus:ring-teal-500 pl-10 pr-4 py-3 text-gray-900 transition shadow-sm"
+            className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-low focus:bg-white focus:border-surface-tint focus:ring-surface-tint pl-10 pr-4 py-3 text-on-surface transition shadow-sm"
           />
           {!placesReady && !placesError && (
-            <p className="mt-2 text-xs text-gray-500">Loading Google Places…</p>
+            <p className="mt-2 text-xs text-on-secondary-container">Loading Google Places…</p>
           )}
           {placesError && (
-            <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+            <p className="mt-2 text-xs text-error flex items-center gap-1">
               {placesError} — falling back to manual entry.
             </p>
           )}
         </div>
-        <div className="flex items-center gap-4 my-6 text-sm text-gray-400 select-none">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="uppercase tracking-wide text-xs font-medium text-gray-500">Or fill in the details below</span>
-          <div className="flex-1 h-px bg-gray-200" />
+        <div className="flex items-center gap-4 my-6 text-sm text-outline select-none">
+          <div className="flex-1 h-px bg-outline-variant/20" />
+          <span className="uppercase tracking-wide text-xs font-medium text-on-secondary-container">Or fill in the details below</span>
+          <div className="flex-1 h-px bg-outline-variant/20" />
         </div>
       </div>
 
@@ -261,79 +261,79 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
       <div className="grid gap-6">
         <div className="grid gap-6 sm:grid-cols-2">
           <div>
-            <label className="form-label">Country*</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Country*</label>
             <div className="relative">
               <select
                 value={values.country}
                 onChange={e => setField('country', e.target.value)}
                 onBlur={() => markTouched('country')}
-                className={`w-full rounded-lg border bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm appearance-none ${errors.country && touched.country ? 'border-red-400' : 'border-gray-200'}`}
+                className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm appearance-none ${errors.country && touched.country ? 'border-error' : 'border-outline-variant/30'}`}
               >
                 <option value="">Select country</option>
                 {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</div>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-outline">▾</div>
             </div>
-            {errors.country && touched.country && <p className="mt-1 text-xs text-red-600">{errors.country}</p>}
+            {errors.country && touched.country && <p className="mt-1 text-xs text-error">{errors.country}</p>}
           </div>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="sm:col-span-1">
-            <label className="form-label">Address Street & Number*</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Address Street & Number*</label>
             <input
               type="text"
               value={values.address1}
               onChange={e => setField('address1', e.target.value)}
               onBlur={() => markTouched('address1')}
               placeholder="123 Example St"
-              className={`w-full rounded-lg border bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm ${errors.address1 && touched.address1 ? 'border-red-400' : 'border-gray-200'}`}
+              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.address1 && touched.address1 ? 'border-error' : 'border-outline-variant/30'}`}
             />
-            {errors.address1 && touched.address1 && <p className="mt-1 text-xs text-red-600">{errors.address1}</p>}
+            {errors.address1 && touched.address1 && <p className="mt-1 text-xs text-error">{errors.address1}</p>}
           </div>
           <div className="sm:col-span-1">
-            <label className="form-label">Address 2</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Address 2</label>
             <input
               type="text"
               value={values.address2}
               onChange={e => setField('address2', e.target.value)}
               placeholder="Apartment, suite, etc."
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm"
+              className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm"
             />
           </div>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-3">
           <div>
-            <label className="form-label">City*</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">City*</label>
             <input
               type="text"
               value={values.city}
               onChange={e => setField('city', e.target.value)}
               onBlur={() => markTouched('city')}
-              className={`w-full rounded-lg border bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm ${errors.city && touched.city ? 'border-red-400' : 'border-gray-200'}`}
+              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.city && touched.city ? 'border-error' : 'border-outline-variant/30'}`}
             />
-            {errors.city && touched.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
+            {errors.city && touched.city && <p className="mt-1 text-xs text-error">{errors.city}</p>}
           </div>
           <div>
-            <label className="form-label">Postal Code*</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Postal Code*</label>
             <input
               type="text"
               value={values.postalCode}
               onChange={e => setField('postalCode', e.target.value)}
               onBlur={() => markTouched('postalCode')}
-              className={`w-full rounded-lg border bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm ${errors.postalCode && touched.postalCode ? 'border-red-400' : 'border-gray-200'}`}
+              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.postalCode && touched.postalCode ? 'border-error' : 'border-outline-variant/30'}`}
             />
-             {errors.postalCode && touched.postalCode && <p className="mt-1 text-xs text-red-600">{errors.postalCode}</p>}
+             {errors.postalCode && touched.postalCode && <p className="mt-1 text-xs text-error">{errors.postalCode}</p>}
           </div>
           <div>
-            <label className="form-label">Notes</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Notes</label>
             <input
               type="text"
               value={values.notes}
               onChange={e => setField('notes', e.target.value)}
               placeholder="Delivery related information"
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-3 px-4 text-gray-900 focus:bg-white focus:border-teal-500 focus:ring-teal-500 shadow-sm"
+              className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm"
             />
           </div>
         </div>
@@ -343,7 +343,7 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
         <button
           type="submit"
           disabled={submitting || Object.keys(errors).length > 0 && Object.keys(touched).length > 0}
-          className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-6 py-3 text-white font-medium shadow hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition"
+          className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-primary to-primary-container px-8 py-3 text-white font-headline font-bold shadow-lg shadow-primary/10 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {submitting ? 'Saving Address…' : 'Continue'}
         </button>
@@ -356,4 +356,3 @@ export default CourierAddressForm;
 
 // Utility small Tailwind-friendly label class (could be extracted globally)
 // Add to global CSS if desired; placed here inline for self-containment
-// .form-label { @apply block text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide; }

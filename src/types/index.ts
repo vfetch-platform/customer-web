@@ -17,6 +17,8 @@ export interface Venue {
       closed?: boolean;
     };
   };
+  google_place_id?: string;
+  review_url?: string;
 }
 
 export interface Item {

@@ -1,7 +1,5 @@
 'use client';
 
-import { XCircleIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
-
 interface ErrorBannerProps {
   message: string;
   variant?: 'error' | 'warning';
@@ -12,18 +10,20 @@ interface ErrorBannerProps {
 
 const styles = {
   error: {
-    container: 'bg-red-50 border border-red-200',
-    icon: 'text-red-500',
-    text: 'text-red-700',
-    retry: 'text-red-700 hover:text-red-800',
-    dismiss: 'text-red-400 hover:text-red-600',
+    container: 'bg-error-container',
+    icon: 'text-on-error-container',
+    text: 'text-on-error-container',
+    retry: 'text-on-error-container hover:underline',
+    dismiss: 'text-on-error-container/60 hover:text-on-error-container',
+    iconName: 'error',
   },
   warning: {
-    container: 'bg-amber-50 border border-amber-200',
-    icon: 'text-amber-500',
-    text: 'text-amber-700',
-    retry: 'text-amber-700 hover:text-amber-800',
-    dismiss: 'text-amber-400 hover:text-amber-600',
+    container: 'bg-tertiary-fixed/10',
+    icon: 'text-on-tertiary-fixed-variant',
+    text: 'text-on-tertiary-fixed-variant',
+    retry: 'text-on-tertiary-fixed-variant hover:underline',
+    dismiss: 'text-on-tertiary-fixed-variant/60 hover:text-on-tertiary-fixed-variant',
+    iconName: 'warning',
   },
 };
 
@@ -35,26 +35,20 @@ export default function ErrorBanner({
   className = '',
 }: ErrorBannerProps) {
   const s = styles[variant];
-  const Icon = variant === 'error' ? XCircleIcon : ExclamationTriangleIcon;
 
   return (
-    <div className={`rounded-lg p-4 ${s.container} ${className}`}>
+    <div className={`rounded-xl p-4 ghost-border ${s.container} ${className}`}>
       <div className="flex items-start gap-3">
-        <Icon className={`h-6 w-6 flex-shrink-0 ${s.icon}`} />
+        <span className={`material-symbols-outlined flex-shrink-0 ${s.icon}`}>{s.iconName}</span>
         <div className="flex-1 min-w-0">
           <p className={`text-sm ${s.text}`}>{message}</p>
           {onRetry && (
-            <button
-              onClick={onRetry}
-              className={`text-sm font-medium underline mt-1 ${s.retry}`}
-            >
-              Try again
-            </button>
+            <button onClick={onRetry} className={`text-sm font-bold mt-1 ${s.retry}`}>Try again</button>
           )}
         </div>
         {onDismiss && (
           <button onClick={onDismiss} className={`flex-shrink-0 ${s.dismiss}`}>
-            <XMarkIcon className="h-5 w-5" />
+            <span className="material-symbols-outlined text-xl">close</span>
           </button>
         )}
       </div>
