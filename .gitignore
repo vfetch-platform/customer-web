@@ -93,5 +93,5 @@ config/production.json
 
 # Python virtual environments
 .venv/
-.next/*
-stitch/*
+.next/
+stitch/
