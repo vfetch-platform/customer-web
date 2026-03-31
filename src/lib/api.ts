@@ -84,20 +84,6 @@ export function getErrorMessage(err: unknown): string {
   return ERROR_MESSAGES.UNEXPECTED;
 }
 
-/** Extract raw field-level error details from a backend response, if any */
-export function getErrorDetails(err: unknown): string[] {
-  if (err instanceof AxiosError) {
-    const data = err.response?.data as Record<string, unknown> | undefined;
-    const details = data?.details;
-    if (Array.isArray(details) && details.length > 0) {
-      return details.map((d: unknown) =>
-        typeof d === 'string' ? d : ((d as Record<string, unknown>)?.message as string) || ((d as Record<string, unknown>)?.msg as string) || JSON.stringify(d)
-      );
-    }
-  }
-  return [];
-}
-
 // API functions for the customer app
 export const customerApi = {
   // Search items
