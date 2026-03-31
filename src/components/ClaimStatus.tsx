@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { customerApi } from '@/lib/api';
 import { Venue, Claim } from '@/types';
 import CollectionMethods from './CollectionMethods';
+import VenueReviewPrompt from './VenueReviewPrompt';
 import { ClaimStep, ALL_CLAIM_STEPS, CLIPBOARD_FEEDBACK_MS } from '@/constants/claimSteps';
 import { STORAGE_KEY_CLAIM_ID, STORAGE_KEY_CLAIM_RESULT } from '@/constants/storage';
 import { PLATFORM_FEE } from '@/constants/fees';
@@ -586,6 +587,9 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                 </div>
               </div>
             )}
+
+            {/* Venue Review Prompt */}
+            <VenueReviewPrompt venue={venue} />
 
             {/* Check Another */}
             <div className="text-center pt-2">
