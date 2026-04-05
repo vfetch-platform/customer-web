@@ -56,9 +56,9 @@ module.exports = {
         "on-tertiary-fixed-variant": "#005048",
       },
       fontFamily: {
-        "headline": ["Manrope", "sans-serif"],
-        "body": ["Inter", "sans-serif"],
-        "label": ["Inter", "sans-serif"],
+        "headline": ["DM Sans", "sans-serif"],
+        "body": ["DM Sans", "sans-serif"],
+        "label": ["DM Sans", "sans-serif"],
       },
       borderRadius: {
         "DEFAULT": "0.125rem",

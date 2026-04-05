@@ -117,6 +117,19 @@ export const customerApi = {
     return data;
   },
 
+  // Upload photos for a query
+  uploadPhotos: async (files: File[]): Promise<string[]> => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('photos', file);
+    });
+    const response = await api.post('/uploads/photos', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    });
+    return response.data?.data?.urls || response.data?.urls || [];
+  },
+
   // Create query (Step 1)
   createQuery: async (queryData: {
     name: string;
@@ -127,6 +140,8 @@ export const customerApi = {
     bookingReference?: string;
     itemDescription: string;
     venueId: string;
+    category?: string;
+    photoUrls?: string[];
   }) => {
     // Generate SHA hash of email as per requirements
     const emailHash = CryptoJS.SHA256(queryData.email).toString();

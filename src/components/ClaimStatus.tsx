@@ -5,9 +5,8 @@ import { customerApi } from '@/lib/api';
 import { Venue, Claim } from '@/types';
 import CollectionMethods from './CollectionMethods';
 import VenueReviewPrompt from './VenueReviewPrompt';
-import { ClaimStep, ALL_CLAIM_STEPS, CLIPBOARD_FEEDBACK_MS } from '@/constants/claimSteps';
+import { ClaimStep, CLIPBOARD_FEEDBACK_MS } from '@/constants/claimSteps';
 import { STORAGE_KEY_CLAIM_ID, STORAGE_KEY_CLAIM_RESULT } from '@/constants/storage';
-import { PLATFORM_FEE } from '@/constants/fees';
 
 interface BookingResult {
   booking_id: string;
@@ -27,6 +26,48 @@ interface ConfirmationData {
 
 interface ClaimStatusProps {
   venue: Venue;
+}
+
+// Status stepper config
+const STATUS_STEPS = [
+  { key: 'received', label: 'Report Received', icon: 'description' },
+  { key: 'searching', label: 'Search in Progress', icon: 'manage_search' },
+  { key: 'found', label: 'Item Found', icon: 'inventory_2' },
+  { key: 'collection', label: 'Ready for Collection', icon: 'assignment' },
+];
+
+function getStatusStepIndex(claim: Claim): number {
+  if (claim.status === 'collected') return 4;
+  if (claim.status === 'approved' && claim.payment_status === 'completed') return 3;
+  if (claim.status === 'approved') return 2;
+  if (claim.status === 'pending') return 1;
+  return 0;
+}
+
+function getStatusTitle(claim: Claim): string {
+  if (claim.status === 'collected') return 'Item Collected';
+  if (claim.status === 'approved' && claim.payment_status === 'completed') return 'Ready for Collection';
+  if (claim.status === 'approved') return 'Item Found';
+  if (claim.status === 'pending') return 'Search in Progress';
+  if (claim.status === 'rejected') return 'Claim Rejected';
+  if (claim.status === 'expired') return 'Claim Expired';
+  return 'Report Received';
+}
+
+function getStatusSubtext(claim: Claim): string {
+  if (claim.status === 'approved') {
+    return `Your report #${claim.id.slice(0, 8).toUpperCase()} has been successfully matched. Our concierge is finalizing the handoff details with the venue.`;
+  }
+  if (claim.status === 'pending') {
+    return `Your report #${claim.id.slice(0, 8).toUpperCase()} is being actively searched. We'll notify you as soon as we find a match.`;
+  }
+  if (claim.status === 'collected') {
+    return `Your item has been successfully collected. Thank you for using VFetch!`;
+  }
+  if (claim.status === 'rejected') {
+    return `Unfortunately, your claim was not approved. Please contact the venue if you believe this is an error.`;
+  }
+  return `Your report has been received and logged into our system.`;
 }
 
 export default function ClaimStatus({ venue }: ClaimStatusProps) {
@@ -55,7 +96,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!claimId.trim()) { setError('Please enter a Claim ID to check your claim status.'); return; }
+    if (!claimId.trim()) { setError('Please enter a Claim ID.'); return; }
     setLoading(true);
     setError(null);
     try {
@@ -65,9 +106,9 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
       setStep('details');
     } catch (err: any) {
       const status = err.response?.status;
-      if (status === 400 || status === 422) setError('Invalid Claim ID. Please check your Claim ID and try again.');
-      else if (status === 404) setError('Claim not found. Please check your Claim ID and try again.');
-      else setError(err.normalizedMessage || 'Something went wrong. Please try again.');
+      if (status === 400 || status === 422) setError('Invalid Claim ID format.');
+      else if (status === 404) setError('Claim not found. Please check your ID.');
+      else setError(err.normalizedMessage || 'Something went wrong.');
       setClaim(null);
     } finally { setLoading(false); }
   };
@@ -91,95 +132,40 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
 
   const handleCheckAnother = () => { setClaimId(''); setClaim(null); setConfirmationData(null); setStep('search'); };
 
-  const getStatusMaterialIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return 'schedule';
-      case 'approved': return claim?.payment_status === 'completed' ? 'inventory_2' : 'check_circle';
-      case 'rejected': return 'cancel';
-      case 'collected': return 'check_circle';
-      case 'expired': return 'timer_off';
-      default: return 'schedule';
-    }
-  };
-
-  const getStatusIconColor = (status: string) => {
-    if (status === 'approved' && claim?.payment_status === 'completed') return 'text-surface-tint';
-    switch (status) {
-      case 'pending': return 'text-tertiary-fixed-dim';
-      case 'approved': return 'text-tertiary-fixed';
-      case 'rejected': return 'text-error';
-      case 'collected': return 'text-surface-tint';
-      case 'expired': return 'text-outline';
-      default: return 'text-outline';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    if (status === 'approved' && claim?.payment_status === 'completed') return 'Ready for Collection';
-    switch (status) {
-      case 'pending': return 'Pending Approval';
-      case 'approved': return 'Approved';
-      case 'rejected': return 'Claim Rejected';
-      case 'collected': return 'Item Collected';
-      case 'expired': return 'Claim Expired';
-      default: return status;
-    }
-  };
-
-  const getStatusDescription = (status: string) => {
-    if (status === 'approved' && claim?.payment_status === 'completed') return 'Payment received! Collect your item from the venue using the details below.';
-    switch (status) {
-      case 'pending': return 'Your claim is being reviewed by the venue staff. You will receive an email once approved.';
-      case 'approved': return 'Great! Your claim has been approved. Choose how you would like to collect your item.';
-      case 'rejected': return 'Unfortunately, your claim was not approved. Please contact the venue if you believe this is an error.';
-      case 'collected': return 'Your item has been successfully collected. Thank you for using our service!';
-      case 'expired': return 'Your claim has expired. Please submit a new claim if you still need to collect your item.';
-      default: return '';
-    }
-  };
-
-  const isApproved = claim?.status === 'approved';
-  const visibleSteps = isApproved ? ALL_CLAIM_STEPS : ALL_CLAIM_STEPS.slice(0, 2);
-  const stepIndex = visibleSteps.findIndex((s) => s.key === step);
-
   return (
-    <main className="pt-32 pb-20 px-6 min-h-screen flex flex-col items-center">
-      {/* Decorative gradient */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-96 bg-gradient-to-b from-primary-container/10 to-transparent blur-3xl -z-10 rounded-full" />
-
-      <div className="w-full max-w-4xl">
+    <main className="pt-28 pb-20 px-6 min-h-screen">
+      <div className="w-full max-w-5xl mx-auto">
 
         {/* ═══ SEARCH STEP ═══ */}
         {step === 'search' && (
           <>
-            <header className="text-center mb-12">
-              <h1 className="font-headline text-5xl font-extrabold text-primary tracking-tight mb-4">Check Your Claim Status</h1>
-              <p className="text-on-secondary-container text-lg max-w-xl mx-auto font-body">Enter your unique claim identifier to see real-time updates on your lost item recovery.</p>
+            <header className="text-center mb-10">
+              <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary tracking-tight mb-3">Check Your Claim Status</h1>
+              <p className="text-on-secondary-container text-sm max-w-xl mx-auto">Enter your unique claim identifier to see real-time updates on your lost item recovery.</p>
             </header>
 
-            <div className="bg-surface-container-lowest rounded-[2rem] p-8 md:p-12 shadow-[0px_24px_48px_rgba(7,30,39,0.06)] mb-12">
-              <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
-                <label className="block text-sm font-semibold text-on-surface mb-3 ml-1">Enter your Claim ID</label>
-                <div className="flex flex-col md:flex-row gap-4">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-outline-variant/10 mb-10 max-w-2xl mx-auto">
+              <form onSubmit={handleSearch}>
+                <label className="block text-sm font-medium text-on-surface mb-2">Enter your Claim ID</label>
+                <div className="flex flex-col md:flex-row gap-3">
                   <div className="relative flex-grow">
-                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">fingerprint</span>
+                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">fingerprint</span>
                     <input type="text" value={claimId}
                       onChange={(e) => { setClaimId(e.target.value); sessionStorage.setItem(STORAGE_KEY_CLAIM_ID, e.target.value); }}
                       placeholder="e.g. VF-2024-8892"
-                      className="w-full pl-12 pr-4 py-4 rounded-full bg-surface-container-low border-none ring-1 ring-outline-variant/20 focus:ring-2 focus:ring-surface-tint focus:bg-white transition-all text-on-surface placeholder:text-outline/60"
+                      className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-surface-container-low border border-outline-variant/20 focus:border-primary text-on-surface placeholder:text-outline/50 transition-colors"
                       required />
                   </div>
                   <button type="submit" disabled={loading}
-                    className="bg-gradient-to-r from-primary to-primary-container text-white px-10 py-4 rounded-full font-headline font-bold text-lg hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 disabled:opacity-50">
+                    className="bg-primary text-white px-8 py-3.5 rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50">
                     {loading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto" /> : 'Check Status'}
                   </button>
                 </div>
               </form>
-
               {error && (
-                <div className="mt-8 max-w-2xl mx-auto flex items-center gap-3 p-4 bg-error-container rounded-xl">
-                  <span className="material-symbols-outlined text-on-error-container">error</span>
-                  <p className="text-on-error-container text-sm">{error}</p>
+                <div className="mt-4 flex items-center gap-3 p-3 bg-error-container/20 border border-error/20 rounded-xl">
+                  <span className="material-symbols-outlined text-error text-lg">error</span>
+                  <p className="text-sm text-error">{error}</p>
                 </div>
               )}
             </div>
@@ -189,154 +175,187 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
         {/* ═══ DETAILS STEP ═══ */}
         {step === 'details' && claim && (
           <div className="space-y-8">
-            {/* Back */}
-            <button type="button" onClick={() => { setClaim(null); setError(null); setStep('search'); sessionStorage.removeItem(STORAGE_KEY_CLAIM_RESULT); }}
-              className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-headline font-bold gap-1">
-              <span className="material-symbols-outlined text-lg">arrow_back</span> Back to search
-            </button>
-
-            {/* Claim header card */}
-            <div className="bg-surface-container-lowest rounded-[2rem] p-8 md:p-12 shadow-[0px_24px_48px_rgba(7,30,39,0.06)]">
-              <div className="flex flex-wrap items-center justify-between gap-6 mb-12">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-xl bg-surface-container flex items-center justify-center">
-                    <span className={`material-symbols-outlined text-4xl ${getStatusIconColor(claim.status)}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                      {getStatusMaterialIcon(claim.status)}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="font-headline font-bold text-xl text-primary leading-none">{claim.item?.title || 'Your Item'}</h3>
-                    <p className="text-on-secondary-container text-sm mt-1">Claim ID: {claim.id}</p>
-                  </div>
-                </div>
-                <div className={`px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase ${
-                  claim.status === 'approved' && claim.payment_status !== 'completed'
-                    ? 'bg-tertiary-fixed text-on-tertiary-fixed'
-                    : claim.status === 'pending'
-                    ? 'bg-surface-container-high text-on-surface'
-                    : claim.status === 'rejected' || claim.status === 'expired'
-                    ? 'bg-error-container text-on-error-container'
-                    : 'bg-tertiary-fixed text-on-tertiary-fixed'
-                }`}>
-                  {getStatusText(claim.status)}
-                </div>
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div>
+                <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-1">{getStatusTitle(claim)}</h1>
+                <p className="text-on-secondary-container text-sm leading-relaxed max-w-lg">{getStatusSubtext(claim)}</p>
               </div>
+              <div className="flex gap-3 shrink-0">
+                <button className="bg-primary text-white px-5 py-2.5 rounded-full font-headline font-bold text-sm flex items-center gap-2 hover:bg-primary-container active:scale-95 transition-all">
+                  <span className="material-symbols-outlined text-lg">chat</span>
+                  Message Concierge
+                </button>
+                <button className="bg-white text-primary px-5 py-2.5 rounded-full font-headline font-bold text-sm border border-outline-variant/20 flex items-center gap-2 hover:bg-surface-container-low active:scale-95 transition-all">
+                  Update Info
+                </button>
+              </div>
+            </div>
 
-              {/* Status description */}
-              <p className="text-on-secondary-container mb-8">{getStatusDescription(claim.status)}</p>
-
-              {/* Progress Stepper — Horizontal */}
-              <div className="flex items-start w-full">
-                {visibleSteps.map((s, i) => {
-                  const isCompleted = i < stepIndex;
-                  const isActive = s.key === step;
-                  const isUpcoming = i > stepIndex;
+            {/* Status Stepper */}
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+              <div className="flex items-start justify-between">
+                {STATUS_STEPS.map((s, i) => {
+                  const currentIdx = getStatusStepIndex(claim);
+                  const isComplete = i < currentIdx;
+                  const isActive = i === currentIdx;
                   return (
                     <React.Fragment key={s.key}>
-                      {/* Connector line (vertically centered on circle) */}
                       {i > 0 && (
-                        <div className={`flex-1 h-[2px] mt-5 ${isCompleted || isActive ? 'bg-tertiary-fixed/40' : 'bg-outline-variant/10'}`} />
+                        <div className={`flex-1 h-[2px] mt-5 mx-2 ${isComplete ? 'bg-primary' : 'bg-outline-variant/15'}`} />
                       )}
-                      {/* Step: circle + label */}
-                      <div className={`flex flex-col items-center flex-shrink-0 ${isUpcoming ? 'opacity-40' : ''}`} style={{ width: '5rem' }}>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          isCompleted ? 'bg-tertiary-fixed text-on-tertiary-fixed' :
-                          isActive ? 'bg-surface-tint text-white shadow-lg shadow-surface-tint/30' :
-                          'bg-surface-container-highest text-outline'
+                      <div className="flex flex-col items-center text-center" style={{ width: '6rem' }}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
+                          isComplete ? 'bg-primary text-white' :
+                          isActive ? 'bg-primary text-white shadow-lg shadow-primary/20' :
+                          'bg-surface-container-high text-outline'
                         }`}>
-                          <span className="material-symbols-outlined text-xl" style={isCompleted ? { fontVariationSettings: "'FILL' 1" } : undefined}>
-                            {isCompleted ? 'check' : isActive ? 'radio_button_checked' : 'circle'}
+                          <span className="material-symbols-outlined text-lg" style={isComplete ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+                            {isComplete ? 'check_circle' : s.icon}
                           </span>
                         </div>
-                        <h4 className={`mt-2 font-headline font-bold text-xs text-center ${isActive ? 'text-surface-tint' : isCompleted ? 'text-on-tertiary-fixed-variant' : 'text-on-secondary-container'}`}>{s.label}</h4>
+                        <p className={`text-[11px] font-medium leading-tight ${isActive || isComplete ? 'text-primary font-semibold' : 'text-outline'}`}>{s.label}</p>
+                        {(isComplete || isActive) && (
+                          <p className="text-[10px] text-on-secondary-container mt-0.5">
+                            {new Date(isActive ? claim.created_at : claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, {new Date(claim.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                        {!isComplete && !isActive && s.key === 'collection' && claim.status === 'approved' && (
+                          <p className="text-[10px] text-on-secondary-container mt-0.5">Estimated: Today</p>
+                        )}
                       </div>
                     </React.Fragment>
                   );
                 })}
               </div>
+            </div>
 
-              {/* Claim details grid */}
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="bg-surface-container-low rounded-xl p-4">
-                  <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-1">Created</p>
-                  <p className="font-headline font-bold text-primary">{new Date(claim.created_at).toLocaleDateString()}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-xl p-4">
-                  <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-1">Expires</p>
-                  <p className="font-headline font-bold text-primary">{new Date(claim.expires_at).toLocaleDateString()}</p>
-                </div>
-                <div className="bg-surface-container-low rounded-xl p-4">
-                  <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-1">Payment</p>
-                  <p className={`font-headline font-bold capitalize ${
-                    claim.payment_status === 'completed' ? 'text-on-tertiary-fixed-variant' :
-                    claim.payment_status === 'failed' ? 'text-error' : 'text-primary'
-                  }`}>{claim.payment_status}</p>
-                </div>
-                {claim.payment_status !== 'completed' && (
-                  <div className="bg-surface-container-low rounded-xl p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-1">Platform Fee</p>
-                    <p className="font-headline font-bold text-primary">&pound;{PLATFORM_FEE.toFixed(2)}</p>
+            {/* Item Details + Timeline Grid */}
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* Item Details */}
+              <div className="md:col-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+                <h2 className="font-headline text-xl font-bold text-primary mb-5">Item Details</h2>
+                {claim.item && (
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {claim.item.images && claim.item.images.length > 0 && (
+                      <div className="md:w-56 shrink-0">
+                        <img src={claim.item.images[0]} alt={claim.item.title}
+                          className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setLightboxImage(claim.item!.images[0])} />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Category</p>
+                      <p className="font-headline font-bold text-lg text-primary mb-3 capitalize">{claim.item.category || 'Personal Accessory'}</p>
+
+                      <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Description</p>
+                      <p className="text-sm text-on-secondary-container leading-relaxed mb-4">{claim.item.description}</p>
+
+                      <div className="flex flex-wrap gap-2">
+                        {((claim.item as any).match_score || (claim.item as any).similarity_score) && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-primary/20 text-xs font-medium text-primary">
+                            Matched: {Math.round((claim.item as any).match_score || (claim.item as any).similarity_score)}%
+                          </span>
+                        )}
+                        {claim.item.location_found && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
+                            Location: {claim.item.location_found}
+                          </span>
+                        )}
+                        {claim.item.color && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container capitalize">
+                            {claim.item.color}
+                          </span>
+                        )}
+                        {claim.item.brand && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
+                            {claim.item.brand}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Item Details */}
-            {claim.item && (
-              <div className="bg-surface-container-lowest rounded-[2rem] p-8 editorial-shadow">
-                <h4 className="font-headline text-lg font-bold text-primary mb-6">Item Details</h4>
-                <div className="flex flex-col md:flex-row gap-6">
-                  {claim.item.images && claim.item.images.length > 0 && (
-                    <div className="md:w-1/3">
-                      <img src={claim.item.images[0]} alt={claim.item.title}
-                        className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setLightboxImage(claim.item!.images[0])} />
-                      {claim.item.images.length > 1 && (
-                        <div className="flex gap-2 mt-2">
-                          {claim.item.images.slice(1).map((img, i) => (
-                            <img key={i} src={img} alt={`${claim.item!.title} ${i + 2}`}
-                              className="w-14 h-14 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => setLightboxImage(img)} />
-                          ))}
-                        </div>
-                      )}
+              {/* Timeline of Updates */}
+              <div className="bg-surface-container-low rounded-2xl p-6 shadow-sm border border-outline-variant/10">
+                <h2 className="font-headline text-lg font-bold text-primary mb-5">Timeline of Updates</h2>
+                <div className="space-y-6">
+                  {claim.status === 'approved' && (
+                    <div className="flex gap-3">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="material-symbols-outlined text-primary text-sm">verified</span>
+                      </div>
+                      <div>
+                        <p className="font-headline font-bold text-sm text-primary">Matched &amp; Found</p>
+                        <p className="text-[10px] text-on-secondary-container">{new Date(claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                        <p className="text-xs text-on-secondary-container mt-1 leading-relaxed">Venue staff confirmed the item matches your description perfectly.</p>
+                      </div>
                     </div>
                   )}
-                  <div className="flex-1">
-                    <h5 className="font-headline text-lg font-bold text-primary mb-2">{claim.item.title}</h5>
-                    <p className="text-on-secondary-container mb-4">{claim.item.description}</p>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2 text-on-secondary-container">
-                        <span className="material-symbols-outlined text-surface-tint text-lg">category</span>
-                        <span className="capitalize">{claim.item.category}</span>
-                      </div>
-                      {claim.item.color && (
-                        <div className="flex items-center gap-2 text-on-secondary-container">
-                          <span className="material-symbols-outlined text-surface-tint text-lg">palette</span>
-                          <span className="capitalize">{claim.item.color}</span>
-                        </div>
-                      )}
-                      {claim.item.brand && (
-                        <div className="flex items-center gap-2 text-on-secondary-container">
-                          <span className="material-symbols-outlined text-surface-tint text-lg">sell</span>
-                          <span>{claim.item.brand}</span>
-                        </div>
-                      )}
-                      {claim.item.location_found && (
-                        <div className="flex items-center gap-2 text-on-secondary-container">
-                          <span className="material-symbols-outlined text-surface-tint text-lg">location_on</span>
-                          <span>{claim.item.location_found}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 text-on-secondary-container">
-                        <span className="material-symbols-outlined text-surface-tint text-lg">calendar_today</span>
-                        <span>{new Date(claim.item.date_found).toLocaleDateString()}</span>
-                      </div>
+                  <div className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="material-symbols-outlined text-on-secondary-container text-sm">search</span>
                     </div>
+                    <div>
+                      <p className="font-headline font-bold text-sm text-primary">Search Commenced</p>
+                      <p className="text-[10px] text-on-secondary-container">{new Date(claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                      <p className="text-xs text-on-secondary-container mt-1 leading-relaxed">The Digital Concierge initiated a scan of local venue databases.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="material-symbols-outlined text-on-secondary-container text-sm">description</span>
+                    </div>
+                    <div>
+                      <p className="font-headline font-bold text-sm text-primary">Report Received</p>
+                      <p className="text-[10px] text-on-secondary-container">{new Date(claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                      <p className="text-xs text-on-secondary-container mt-1 leading-relaxed">Your lost item report was logged into the Vfetch network.</p>
+                    </div>
+                  </div>
+
+                  {/* Next Step */}
+                  {claim.status === 'approved' && claim.payment_status !== 'completed' && (
+                    <div className="bg-surface-container rounded-xl p-4 mt-2">
+                      <p className="font-headline font-bold text-sm text-primary mb-1">Next Step</p>
+                      <p className="text-xs text-on-secondary-container leading-relaxed">Choose a collection method to arrange pickup or delivery of your item.</p>
+                    </div>
+                  )}
+                  {claim.status === 'approved' && claim.payment_status === 'completed' && (
+                    <div className="bg-surface-container rounded-xl p-4 mt-2">
+                      <p className="font-headline font-bold text-sm text-primary mb-1">Next Step</p>
+                      <p className="text-xs text-on-secondary-container leading-relaxed">We are waiting for the venue&apos;s concierge to issue a collection QR code.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Original Report Summary */}
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+              <h2 className="font-headline text-xl font-bold text-primary mb-5">Original Report Summary</h2>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4 bg-surface-container-low rounded-xl p-4">
+                  <span className="material-symbols-outlined text-primary text-xl mt-0.5">location_on</span>
+                  <div>
+                    <p className="font-headline font-bold text-sm text-primary">Lost at {venue.name}</p>
+                    <p className="text-xs text-on-secondary-container">{claim.item?.location_found || venue.address || 'Location details available on record'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4 bg-surface-container-low rounded-xl p-4">
+                  <span className="material-symbols-outlined text-primary text-xl mt-0.5">calendar_today</span>
+                  <div>
+                    <p className="font-headline font-bold text-sm text-primary">Date &amp; Time Lost</p>
+                    <p className="text-xs text-on-secondary-container">
+                      {claim.item?.date_found
+                        ? new Date(claim.item.date_found).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                        : new Date(claim.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Collection Methods */}
             {claim.status === 'approved' && claim.payment_status !== 'completed' && (
@@ -345,10 +364,10 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
 
             {/* Delivery Tracking */}
             {claim.collection_method && claim.collection_method !== 'self_pickup' && claim.delivery_tracking && (
-              <div className="bg-surface-container-lowest rounded-[2rem] p-8 editorial-shadow">
+              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-surface-tint text-2xl">local_shipping</span>
-                  <h4 className="font-headline text-lg font-bold text-primary">Delivery Tracking</h4>
+                  <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
+                  <h2 className="font-headline text-lg font-bold text-primary">Delivery Tracking</h2>
                 </div>
                 <div className="bg-surface-container-low rounded-xl p-4">
                   <p className="font-headline font-bold text-primary">Tracking: {claim.delivery_tracking}</p>
@@ -361,96 +380,26 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
 
             {/* Pickup Code */}
             {(claim.status === 'approved' || claim.status === 'collected') && claim.payment_status === 'completed' && claim.collection_method === 'self_pickup' && claim.pickup_code && (
-              <div className="bg-surface-container-lowest rounded-[2rem] p-8 editorial-shadow">
-                <h4 className="font-headline text-lg font-bold text-primary mb-4">Pickup Information</h4>
+              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+                <h2 className="font-headline text-lg font-bold text-primary mb-4">Pickup Information</h2>
                 <div className="bg-tertiary-fixed/10 rounded-xl p-6">
                   <p className="font-headline text-lg font-bold text-on-tertiary-fixed-variant">
-                    Your Pickup Code: <span className="font-headline text-2xl tracking-wider">{claim.pickup_code}</span>
+                    Your Pickup Code: <span className="text-2xl tracking-wider">{claim.pickup_code}</span>
                   </p>
-                  <p className="text-on-tertiary-fixed-variant text-sm mt-2">Present this code at the venue during collection hours to collect your item.</p>
+                  <p className="text-on-tertiary-fixed-variant text-sm mt-2">Present this code at the venue during collection hours.</p>
                 </div>
               </div>
             )}
-
-            {/* Venue Details — after payment */}
-            {(claim.status === 'approved' || claim.status === 'collected') && claim.payment_status === 'completed' && (
-              <div className="bg-surface-container-lowest rounded-[2rem] p-8 editorial-shadow">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-surface-tint text-2xl">location_on</span>
-                  <h4 className="font-headline text-lg font-bold text-primary">Venue Details</h4>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-start gap-3"><span className="material-symbols-outlined text-surface-tint mt-0.5">apartment</span>
-                    <div><p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Venue</p><p className="font-headline font-bold text-primary">{venue.name}</p></div>
-                  </div>
-                  <div className="flex items-start gap-3"><span className="material-symbols-outlined text-surface-tint mt-0.5">location_on</span>
-                    <div><p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Address</p><p className="font-headline font-bold text-primary">{venue.address}</p></div>
-                  </div>
-                  {venue.phone && (
-                    <div className="flex items-start gap-3"><span className="material-symbols-outlined text-surface-tint mt-0.5">call</span>
-                      <div><p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Phone</p><a href={`tel:${venue.phone}`} className="font-bold text-surface-tint hover:underline">{venue.phone}</a></div>
-                    </div>
-                  )}
-                  {venue.email && (
-                    <div className="flex items-start gap-3"><span className="material-symbols-outlined text-surface-tint mt-0.5">mail</span>
-                      <div><p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Email</p><a href={`mailto:${venue.email}`} className="font-bold text-surface-tint hover:underline">{venue.email}</a></div>
-                    </div>
-                  )}
-                </div>
-                {venue.collection_hours && (
-                  <div className="mt-6 bg-surface-container-low rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="material-symbols-outlined text-surface-tint">schedule</span>
-                      <p className="font-headline font-bold text-primary">Collection Hours</p>
-                    </div>
-                    <div className="space-y-1.5 text-sm">
-                      {Object.entries(venue.collection_hours).map(([day, hours]) => (
-                        <div key={day} className="flex justify-between">
-                          <span className="capitalize font-medium text-on-surface">{day}</span>
-                          <span className={hours.closed ? 'text-error font-medium' : 'text-on-surface font-medium'}>
-                            {hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Bento info section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 bg-surface-container-low rounded-[2rem] p-8 flex flex-col justify-between">
-                <div>
-                  <span className="text-surface-tint font-bold text-xs uppercase tracking-widest mb-4 block">Quick Help</span>
-                  <h3 className="font-headline text-2xl font-bold text-primary mb-4 leading-tight">Need to update your collection method?</h3>
-                  <p className="text-on-secondary-container font-body leading-relaxed max-w-md">You can switch between In-Person Pickup and Premium Courier Delivery before completing your payment.</p>
-                </div>
-                {claim.status === 'approved' && claim.payment_status !== 'completed' && (
-                  <button onClick={() => setStep('collection')} className="mt-8 text-primary font-bold flex items-center gap-2 hover:gap-4 transition-all w-fit font-headline">
-                    Manage Options <span className="material-symbols-outlined">arrow_forward</span>
-                  </button>
-                )}
-              </div>
-              <div className="bg-primary text-white rounded-[2rem] p-8 flex flex-col items-center justify-center text-center overflow-hidden relative">
-                <div className="relative z-10">
-                  <span className="material-symbols-outlined text-5xl mb-4 text-tertiary-fixed">headset_mic</span>
-                  <h4 className="font-headline font-bold text-lg mb-2">Concierge Support</h4>
-                  <p className="text-on-primary-container text-sm font-body mb-6">Available 24/7 for high-priority claims.</p>
-                  <button className="bg-white/10 hover:bg-white/20 px-6 py-2 rounded-full text-xs font-bold transition-colors backdrop-blur-md">Chat Now</button>
-                </div>
-              </div>
-            </div>
 
             {/* Action buttons */}
             <div className="flex gap-3 pt-2">
               <button onClick={handleCheckAnother}
-                className="flex-1 py-3 px-4 bg-secondary-container text-on-secondary-container rounded-full font-headline font-bold hover:bg-surface-container-high transition-colors">
+                className="flex-1 py-3 px-4 bg-white text-on-secondary-container border border-outline-variant/20 rounded-full font-headline font-bold text-sm hover:bg-surface-container-low transition-colors">
                 Check Another Claim
               </button>
               {claim.status === 'approved' && !claim.collection_method && claim.payment_status !== 'completed' && (
                 <button onClick={() => setStep('collection')}
-                  className="flex-1 py-3 px-4 bg-gradient-to-r from-primary to-primary-container text-white rounded-full font-headline font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10">
+                  className="flex-1 py-3 px-4 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
                   Choose Collection Method
                 </button>
               )}
@@ -468,23 +417,23 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
           <div className="space-y-8">
             {/* Courier Confirmation */}
             {confirmationData.type === 'courier' && confirmationData.booking && (
-              <div className="bg-surface-container-lowest rounded-[2rem] editorial-shadow p-8 md:p-12">
+              <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 p-8 md:p-12">
                 <div className="flex flex-col items-center text-center mb-8">
-                  <div className="w-16 h-16 bg-tertiary-fixed/20 rounded-full flex items-center justify-center mb-4">
-                    <span className="material-symbols-outlined text-4xl text-on-tertiary-fixed" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                    <span className="material-symbols-outlined text-4xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                   </div>
                   <h3 className="font-headline text-2xl font-bold text-primary">Payment Successful!</h3>
-                  <p className="text-on-secondary-container text-sm mt-2">Your {confirmationData.service || 'courier'} has been booked. Here are your details:</p>
+                  <p className="text-on-secondary-container text-sm mt-2">Your {confirmationData.service || 'courier'} has been booked.</p>
                 </div>
                 <div className="bg-surface-container-low rounded-xl divide-y divide-outline-variant/10">
                   {confirmationData.booking.tracking_number && (
                     <div className="flex items-center justify-between px-5 py-4">
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Tracking Number</p>
+                        <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60">Tracking Number</p>
                         <p className="font-headline font-bold text-primary mt-0.5">{confirmationData.booking.tracking_number}</p>
                       </div>
                       <button onClick={() => copyToClipboard(confirmationData.booking!.tracking_number, 'tracking')}
-                        className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline px-2 py-1 rounded">
+                        className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline">
                         <span className="material-symbols-outlined text-sm">content_copy</span>
                         {copiedField === 'tracking' ? 'Copied!' : 'Copy'}
                       </button>
@@ -492,79 +441,55 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                   )}
                   <div className="flex items-center justify-between px-5 py-4">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Booking ID</p>
+                      <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60">Booking ID</p>
                       <p className="font-headline font-bold text-primary mt-0.5">{confirmationData.booking.booking_id}</p>
                     </div>
                     <button onClick={() => copyToClipboard(confirmationData.booking!.booking_id, 'booking')}
-                      className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline px-2 py-1 rounded">
+                      className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline">
                       <span className="material-symbols-outlined text-sm">content_copy</span>
                       {copiedField === 'booking' ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Payment Reference</p>
-                      <p className="text-sm font-medium text-on-secondary-container mt-0.5 truncate max-w-[220px]" title={confirmationData.booking.payment_intent_id}>{confirmationData.booking.payment_intent_id}</p>
-                    </div>
-                    <button onClick={() => copyToClipboard(confirmationData.booking!.payment_intent_id, 'payment')}
-                      className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline px-2 py-1 rounded">
-                      <span className="material-symbols-outlined text-sm">content_copy</span>
-                      {copiedField === 'payment' ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
                   {confirmationData.service && (
                     <div className="px-5 py-4">
-                      <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Service</p>
+                      <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60">Service</p>
                       <p className="font-headline font-bold text-primary mt-0.5">{confirmationData.service}</p>
                       {confirmationData.estimatedDelivery && <p className="text-xs text-on-secondary-container mt-0.5">Est. delivery: {confirmationData.estimatedDelivery}</p>}
                     </div>
                   )}
                 </div>
                 <div className="mt-6 bg-surface-container-low rounded-xl p-4 text-center">
-                  <p className="text-xs text-on-secondary-container">A confirmation email with these details has been sent to you. You can also track your delivery using the tracking number above.</p>
+                  <p className="text-xs text-on-secondary-container">A confirmation email has been sent to you.</p>
                 </div>
               </div>
             )}
 
             {/* Self Pickup Confirmation */}
             {confirmationData.type === 'self_pickup' && (
-              <div className="bg-surface-container-lowest rounded-[2rem] editorial-shadow p-8 md:p-12">
+              <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 p-8 md:p-12">
                 <div className="flex flex-col items-center text-center mb-8">
-                  <div className="w-16 h-16 bg-tertiary-fixed/20 rounded-full flex items-center justify-center mb-4">
-                    <span className="material-symbols-outlined text-4xl text-on-tertiary-fixed" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                    <span className="material-symbols-outlined text-4xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                   </div>
                   <h3 className="font-headline text-2xl font-bold text-primary">Payment Successful!</h3>
-                  <p className="text-on-secondary-container text-sm mt-2">Your self-pickup has been confirmed. Visit the venue to collect your item.</p>
+                  <p className="text-on-secondary-container text-sm mt-2">Visit the venue to collect your item.</p>
                 </div>
                 <div className="bg-surface-container-low rounded-xl divide-y divide-outline-variant/10">
-                  {confirmationData.paymentIntentId && (
-                    <div className="flex items-center justify-between px-5 py-4">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Payment Reference</p>
-                        <p className="text-sm font-medium text-on-secondary-container mt-0.5 truncate max-w-[220px]" title={confirmationData.paymentIntentId}>{confirmationData.paymentIntentId}</p>
-                      </div>
-                      <button onClick={() => copyToClipboard(confirmationData.paymentIntentId!, 'payment')}
-                        className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline px-2 py-1 rounded">
-                        <span className="material-symbols-outlined text-sm">content_copy</span>
-                        {copiedField === 'payment' ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
-                  )}
                   <div className="flex items-center justify-between px-5 py-4">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Pickup Code</p>
+                      <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60">Pickup Code</p>
                       <p className="font-headline text-2xl font-bold text-primary tracking-widest mt-0.5">{confirmationData.pickupCode}</p>
                     </div>
                     {confirmationData.pickupCode && (
                       <button onClick={() => copyToClipboard(confirmationData.pickupCode!, 'pickup')}
-                        className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline px-2 py-1 rounded">
+                        className="flex items-center gap-1 text-xs font-bold text-surface-tint hover:underline">
                         <span className="material-symbols-outlined text-sm">content_copy</span>
                         {copiedField === 'pickup' ? 'Copied!' : 'Copy'}
                       </button>
                     )}
                   </div>
                   <div className="px-5 py-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Collection Method</p>
+                    <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60">Collection Method</p>
                     <p className="font-headline font-bold text-primary mt-0.5">Self Pickup</p>
                     <p className="text-xs text-on-secondary-container mt-0.5">Present this code and a valid photo ID at the venue</p>
                   </div>
@@ -582,19 +507,14 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                     </div>
                   </div>
                 )}
-                <div className="mt-4 bg-surface-container-low rounded-xl p-4 text-center">
-                  <p className="text-xs text-on-secondary-container">A confirmation email with these details has been sent to you.</p>
-                </div>
               </div>
             )}
 
-            {/* Venue Review Prompt */}
             <VenueReviewPrompt venue={venue} />
 
-            {/* Check Another */}
             <div className="text-center pt-2">
               <button onClick={handleCheckAnother}
-                className="py-3 px-8 bg-secondary-container text-on-secondary-container rounded-full font-headline font-bold hover:bg-surface-container-high transition-colors active:scale-95">
+                className="py-3 px-8 bg-white text-on-secondary-container border border-outline-variant/20 rounded-full font-headline font-bold text-sm hover:bg-surface-container-low transition-colors active:scale-95">
                 Check Another Claim
               </button>
             </div>
