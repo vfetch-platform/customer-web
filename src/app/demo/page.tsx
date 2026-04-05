@@ -6,17 +6,9 @@ import { useState, useEffect } from 'react';
 import { customerApi } from '@/lib/api';
 import Footer from '@/components/landing/Footer';
 
-interface Venue {
-  id: string;
-  name: string;
-  type: string;
-  city?: string;
-}
-
 export default function LandingPage() {
   const router = useRouter();
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [selectedVenue, setSelectedVenue] = useState('');
+  const [venueId, setVenueId] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,11 +18,9 @@ export default function LandingPage() {
         const activeVenues = [...data].filter((v, i, self) =>
           i === self.findIndex((t) => t.id === v.id)
         );
-        setVenues(activeVenues);
-        if (activeVenues.length > 0) setSelectedVenue(activeVenues[0].id);
+        if (activeVenues.length > 0) setVenueId(activeVenues[0].id);
       } catch {
-        setVenues([{ id: 'demo-hotel-123', name: 'Grand Plaza Hotel (Demo)', type: 'hotel' }]);
-        setSelectedVenue('demo-hotel-123');
+        setVenueId('demo-hotel-123');
       } finally {
         setLoading(false);
       }
@@ -39,11 +29,11 @@ export default function LandingPage() {
   }, []);
 
   const handleReportItem = () => {
-    if (selectedVenue) router.push(`/venue/${selectedVenue}/lost-and-found`);
+    if (venueId) router.push(`/venue/${venueId}/lost-and-found`);
   };
 
   const handleTrackStatus = () => {
-    if (selectedVenue) router.push(`/venue/${selectedVenue}/lost-and-found?tab=status`);
+    if (venueId) router.push(`/venue/${venueId}/lost-and-found?tab=status`);
   };
 
   return (
@@ -71,28 +61,11 @@ export default function LandingPage() {
               Our digital concierge service is here to help reunite you with your belongings. Precision tracking meets high-end care.
             </p>
 
-            {/* Venue selector (inline) */}
-            {!loading && venues.length > 1 && (
-              <div className="mb-6">
-                <select
-                  value={selectedVenue}
-                  onChange={(e) => setSelectedVenue(e.target.value)}
-                  className="w-full md:w-auto bg-white border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface font-body appearance-none cursor-pointer focus:border-primary focus:outline-none transition-colors capitalize"
-                >
-                  {venues.map((venue) => (
-                    <option key={venue.id} value={venue.id}>
-                      {venue.name} {venue.city ? `- ${venue.city}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {/* CTAs */}
             <div className="flex flex-wrap gap-4 mb-10">
               <button
                 onClick={handleReportItem}
-                disabled={loading || !selectedVenue}
+                disabled={loading || !venueId}
                 className="bg-primary text-white px-8 py-3.5 rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 Report a Lost Item
@@ -100,7 +73,7 @@ export default function LandingPage() {
               </button>
               <button
                 onClick={handleTrackStatus}
-                disabled={loading || !selectedVenue}
+                disabled={loading || !venueId}
                 className="bg-white text-primary px-8 py-3.5 rounded-full font-headline font-bold text-sm border border-outline-variant/20 hover:bg-surface-container-low active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 Track Status
