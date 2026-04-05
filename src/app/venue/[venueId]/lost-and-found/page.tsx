@@ -102,7 +102,10 @@ export default function LostAndFoundPage() {
           </div>
           {/* Right side */}
           <div className="flex items-center gap-4">
-            <button className="text-on-secondary-container hover:text-primary transition-all duration-200 font-body font-semibold text-sm">
+            <button
+              onClick={() => document.getElementById('footer-support')?.scrollIntoView({ behavior: 'smooth' })}
+              className="text-on-secondary-container hover:text-primary transition-all duration-200 font-body font-semibold text-sm"
+            >
               Support
             </button>
             {venue.logo && (
@@ -227,21 +230,30 @@ export default function LostAndFoundPage() {
             <h4 className="font-headline font-bold text-lg mb-6">Quick Links</h4>
             <ul className="space-y-3">
               {venue.collection_hours && (
-                <li><span className="opacity-70 cursor-default">Collection Hours</span></li>
+                <li><button onClick={() => { setActiveTab('status'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="opacity-70 hover:opacity-100 hover:text-surface-tint transition-all">Collection Hours</button></li>
               )}
-              <li><span className="opacity-70 cursor-default">Contact Venue</span></li>
-              <li><span className="opacity-70 cursor-default">Privacy Policy</span></li>
-              <li><span className="opacity-70 cursor-default">Terms of Service</span></li>
+              {venue.phone && (
+                <li><a href={`tel:${venue.phone}`} className="opacity-70 hover:opacity-100 hover:text-surface-tint transition-all">Contact Venue</a></li>
+              )}
+              {!venue.phone && venue.email && (
+                <li><a href={`mailto:${venue.email}`} className="opacity-70 hover:opacity-100 hover:text-surface-tint transition-all">Contact Venue</a></li>
+              )}
+              <li><button onClick={() => { setActiveTab('how'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="opacity-70 hover:opacity-100 hover:text-surface-tint transition-all">How it Works</button></li>
+              <li><button onClick={() => { setActiveTab('search'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="opacity-70 hover:opacity-100 hover:text-surface-tint transition-all">Find Item</button></li>
             </ul>
           </div>
-          <div className="space-y-6">
+          <div id="footer-support" className="space-y-6">
             <h4 className="font-headline font-bold text-lg mb-6">Support</h4>
             <p className="opacity-70">Need immediate assistance? Our 24/7 concierge desk is here to help.</p>
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-primary-fixed/30 flex items-center justify-center">
                 <span className="material-symbols-outlined text-primary">phone_in_talk</span>
               </div>
-              <span className="font-bold">{venue.phone || 'Contact Venue'}</span>
+              {venue.phone ? (
+                <a href={`tel:${venue.phone}`} className="font-bold hover:text-surface-tint transition-colors">{venue.phone}</a>
+              ) : (
+                <span className="font-bold">Contact Venue</span>
+              )}
             </div>
           </div>
         </div>
