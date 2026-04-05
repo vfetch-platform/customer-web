@@ -115,7 +115,7 @@ export default function SearchItems({ venue }: SearchItemsProps) {
     try {
       const queryResponse = await customerApi.createQuery({
         name: formData.name, email: formData.email, phone: formData.phone,
-        location: formData.location,
+        location: formData.location || undefined,
         datesOfStay: { checkin: formData.checkinDate, checkout: formData.checkoutDate },
         bookingReference: formData.bookingReference || undefined,
         itemDescription: formData.itemDescription, venueId: venue.id,

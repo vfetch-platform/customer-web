@@ -122,7 +122,7 @@ export const customerApi = {
     name: string;
     email: string;
     phone: string;
-    location: string;
+    location?: string;
     datesOfStay: { checkin: string; checkout: string };
     bookingReference?: string;
     itemDescription: string;
