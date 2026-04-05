@@ -11,7 +11,7 @@ interface FooterProps {
 export default function Footer({ venue }: FooterProps) {
   return (
     <footer className="bg-white w-full border-t border-outline-variant/10 mt-20">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 px-6 md:px-12 py-12 md:py-16 max-w-7xl mx-auto">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-12 px-6 md:px-12 py-12 md:py-16 max-w-7xl mx-auto">
         {/* Brand */}
         <div className="col-span-2 md:col-span-1">
           <h3 className="font-headline font-bold text-lg text-primary mb-3">Vfetch</h3>
@@ -20,16 +20,6 @@ export default function Footer({ venue }: FooterProps) {
               ? '"Your Digital Concierge."'
               : 'Providing high-end lost property solutions for premium venues and their guests.'}
           </p>
-          {!venue && (
-            <p className="text-xs text-on-secondary-container/60 mt-4">
-              &copy; {new Date().getFullYear()} Vfetch. Your Digital Concierge.
-            </p>
-          )}
-          {venue && (
-            <p className="text-xs text-on-secondary-container/60 mt-4">
-              &copy; {new Date().getFullYear()} Vfetch. All rights reserved.
-            </p>
-          )}
         </div>
 
         {/* Legal */}

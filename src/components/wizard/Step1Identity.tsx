@@ -146,21 +146,6 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
         </button>
       </div>
 
-      {/* Help Banner */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-outline-variant/10 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-2xl">support_agent</span>
-          </div>
-          <div>
-            <p className="font-headline font-bold text-sm text-primary">Need assistance with your booking details?</p>
-            <p className="text-xs text-on-secondary-container">Your digital concierge is online. Start a chat or call +1 800-VFETCH.</p>
-          </div>
-        </div>
-        <button className="shrink-0 px-5 py-2.5 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/5 transition-colors">
-          Contact Venue
-        </button>
-      </div>
     </div>
   );
 }

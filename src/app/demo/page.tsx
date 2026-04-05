@@ -183,8 +183,9 @@ export default function LandingPage() {
       </section>
 
       {/* Status Update Section */}
-      <section className="py-20 md:py-28 px-6 md:px-12 max-w-7xl mx-auto">
-        <div className="bg-surface-container-low rounded-3xl p-8 md:p-12 grid md:grid-cols-2 gap-8 items-center">
+      <section className="py-20 md:py-28">
+        <div className="max-w-7xl mx-auto px-6 md:px-12">
+          <div className="bg-surface-container-low rounded-3xl p-8 md:p-12 grid md:grid-cols-2 gap-8 items-center">
           {/* Left */}
           <div>
             <span className="inline-block bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-4">
@@ -230,6 +231,7 @@ export default function LandingPage() {
               <span>Returned</span>
             </div>
           </div>
+        </div>
         </div>
       </section>
 
