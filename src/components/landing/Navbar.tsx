@@ -22,6 +22,7 @@ export default function Navbar({ variant = 'landing', activeTab, onTabChange, ve
       <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
         {/* Logo */}
         <div className="flex items-center gap-2">
+          <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
           <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
         </div>
 

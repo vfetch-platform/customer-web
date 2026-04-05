@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import { Venue } from '@/types';
 import SearchItems from '@/components/SearchItems';
@@ -11,10 +11,14 @@ import Footer from '@/components/landing/Footer';
 
 export default function LostAndFoundPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const venueId = params.venueId as string;
 
   const [venue, setVenue] = useState<Venue | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('search');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'status' ? 'status' : tab === 'how' ? 'how' : 'search';
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

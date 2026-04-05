@@ -41,12 +41,19 @@ export default function LandingPage() {
     if (selectedVenue) router.push(`/venue/${selectedVenue}/lost-and-found`);
   };
 
+  const handleTrackStatus = () => {
+    if (selectedVenue) router.push(`/venue/${selectedVenue}/lost-and-found?tab=status`);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-surface font-body text-on-surface">
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-outline-variant/10">
         <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
-          <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
+          <div className="flex items-center gap-2">
+            <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
+            <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
+          </div>
           <div className="hidden md:flex items-center gap-8">
             <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">Find Item</a>
             <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">Track Status</a>
@@ -96,7 +103,7 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined text-lg">arrow_forward</span>
               </button>
               <button
-                onClick={handleReportItem}
+                onClick={handleTrackStatus}
                 disabled={loading || !selectedVenue}
                 className="bg-white text-primary px-8 py-3.5 rounded-full font-headline font-bold text-sm border border-outline-variant/20 hover:bg-surface-container-low active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
               >

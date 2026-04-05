@@ -61,14 +61,17 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label htmlFor="phone" className="text-sm font-medium text-on-surface">Phone Number</label>
             <div className="flex gap-2">
-              <select
-                name="phoneCountryCode" value={formData.phoneCountryCode} onChange={onInputChange}
-                className="bg-surface-container-low rounded-xl px-3 py-3.5 text-on-surface border border-outline-variant/20 focus:border-primary transition-colors w-24 appearance-none cursor-pointer"
-              >
-                {COUNTRY_CODES.map((cc) => (
-                  <option key={cc.code} value={cc.code}>{cc.label}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  name="phoneCountryCode" value={formData.phoneCountryCode} onChange={onInputChange}
+                  className="bg-surface-container-low rounded-xl pl-3 pr-8 py-3.5 text-on-surface border border-outline-variant/20 focus:border-primary transition-colors w-24 appearance-none cursor-pointer"
+                >
+                  {COUNTRY_CODES.map((cc) => (
+                    <option key={cc.code} value={cc.code}>{cc.label}</option>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-base pointer-events-none">expand_more</span>
+              </div>
               <input
                 id="phone" name="phone" type="tel" value={formData.phone} onChange={onInputChange}
                 className="flex-1 bg-surface-container-low rounded-xl px-4 py-3.5 text-on-surface placeholder:text-outline/40 border border-outline-variant/20 focus:border-primary transition-colors"
@@ -119,7 +122,7 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="bookingReference" className="text-sm font-medium text-on-surface">Booking Reference</label>
+            <label htmlFor="bookingReference" className="text-sm font-medium text-on-surface">Booking Reference <span className="text-outline font-normal">(Optional)</span></label>
             <input
               id="bookingReference" name="bookingReference" type="text" value={formData.bookingReference} onChange={onInputChange}
               className="bg-surface-container-low rounded-xl px-4 py-3.5 text-on-surface placeholder:text-outline/40 border border-outline-variant/20 focus:border-primary transition-colors"
