@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { customerApi } from '@/lib/api';
 import Footer from '@/components/landing/Footer';
@@ -50,15 +51,10 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-outline-variant/10">
         <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
             <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">Find Item</a>
-            <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">Track Status</a>
-            <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">How it Works</a>
-          </div>
+          </Link>
           <span className="font-body text-sm font-medium text-on-secondary-container hover:text-primary cursor-pointer transition-colors">Help/Support</span>
         </div>
       </nav>

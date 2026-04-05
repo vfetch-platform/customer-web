@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 
 interface NavbarProps {
   variant?: 'landing' | 'app';
@@ -22,33 +23,27 @@ export default function Navbar({ variant = 'landing', activeTab, onTabChange, ve
       <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
-          <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
+            <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
+          </Link>
         </div>
 
         {/* Center Nav Links */}
         <div className="hidden md:flex items-center gap-8">
-          {variant === 'app' ? (
-            NAV_LINKS.map((link) => (
-              <button
-                key={link.key}
-                onClick={() => onTabChange?.(link.key)}
-                className={`font-body text-sm font-medium transition-all duration-200 pb-0.5 ${
-                  activeTab === link.key
-                    ? 'text-primary border-b-2 border-primary'
-                    : 'text-on-secondary-container hover:text-primary border-b-2 border-transparent'
-                }`}
-              >
-                {link.label}
-              </button>
-            ))
-          ) : (
-            <>
-              <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">Find Item</a>
-              <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">Track Status</a>
-              <a href="#" className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">How it Works</a>
-            </>
-          )}
+          {variant === 'app' && NAV_LINKS.map((link) => (
+            <button
+              key={link.key}
+              onClick={() => onTabChange?.(link.key)}
+              className={`font-body text-sm font-medium transition-all duration-200 pb-0.5 ${
+                activeTab === link.key
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-on-secondary-container hover:text-primary border-b-2 border-transparent'
+              }`}
+            >
+              {link.label}
+            </button>
+          ))}
         </div>
 
         {/* Right Side */}

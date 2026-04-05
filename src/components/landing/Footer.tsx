@@ -7,6 +7,7 @@ interface FooterProps {
   venue?: Venue;
 }
 
+
 export default function Footer({ venue }: FooterProps) {
   return (
     <footer className="bg-white w-full border-t border-outline-variant/10 mt-20">
@@ -29,17 +30,6 @@ export default function Footer({ venue }: FooterProps) {
               &copy; {new Date().getFullYear()} Vfetch. All rights reserved.
             </p>
           )}
-        </div>
-
-        {/* Contact / Operations / Service */}
-        <div>
-          <h4 className="font-headline font-semibold text-sm text-primary mb-4">
-            {venue ? 'Service' : 'Contact'}
-          </h4>
-          <ul className="space-y-2.5 text-sm text-on-secondary-container">
-            <li><span className="hover:text-primary cursor-pointer transition-colors">Collection Hours</span></li>
-            <li><span className="hover:text-primary cursor-pointer transition-colors">Contact Venue</span></li>
-          </ul>
         </div>
 
         {/* Legal */}
