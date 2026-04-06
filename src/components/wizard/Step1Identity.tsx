@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { SearchFormData } from '@/constants/search';
+import { PHONE_CODES } from '@/constants/countries';
 
 interface Step1IdentityProps {
   formData: SearchFormData;
@@ -10,18 +11,6 @@ interface Step1IdentityProps {
   onNext: () => void;
   onCancel: () => void;
 }
-
-const COUNTRY_CODES = [
-  { code: '+1', label: '+1' },
-  { code: '+44', label: '+44' },
-  { code: '+91', label: '+91' },
-  { code: '+61', label: '+61' },
-  { code: '+33', label: '+33' },
-  { code: '+49', label: '+49' },
-  { code: '+81', label: '+81' },
-  { code: '+86', label: '+86' },
-  { code: '+971', label: '+971' },
-];
 
 export default function Step1Identity({ formData, fieldErrors, onInputChange, onNext, onCancel }: Step1IdentityProps) {
   return (
@@ -64,10 +53,10 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
               <div className="relative">
                 <select
                   name="phoneCountryCode" value={formData.phoneCountryCode} onChange={onInputChange}
-                  className="bg-surface-container-low rounded-xl pl-3 pr-8 py-3.5 text-on-surface border border-outline-variant/20 focus:border-primary transition-colors w-24 appearance-none cursor-pointer"
+                  className="bg-surface-container-low rounded-xl pl-3 pr-8 py-3.5 text-on-surface border border-outline-variant/20 focus:border-primary transition-colors w-32 appearance-none cursor-pointer"
                 >
-                  {COUNTRY_CODES.map((cc) => (
-                    <option key={cc.code} value={cc.code}>{cc.label}</option>
+                  {PHONE_CODES.map((cc) => (
+                    <option key={cc.code} value={cc.code}>{cc.code} {cc.country}</option>
                   ))}
                 </select>
                 <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-base pointer-events-none">expand_more</span>
@@ -136,7 +125,7 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
       <div className="flex items-center justify-between pt-4">
         <button type="button" onClick={onCancel} className="flex items-center gap-2 text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">
           <span className="material-symbols-outlined text-lg">arrow_back</span>
-          Cancel Submission
+          Cancel
         </button>
         <button
           type="button" onClick={onNext}

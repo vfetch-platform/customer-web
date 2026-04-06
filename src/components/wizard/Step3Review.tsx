@@ -19,9 +19,9 @@ export default function Step3Review({ formData, loading, error, onSubmit, onBack
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
-        <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-2">Review your report</h1>
+        <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-2">Review &amp; Search</h1>
         <p className="text-on-secondary-container text-sm">
-          Please review the information below before submitting your lost item report.
+          Please review the details below before we search the venue's lost and found.
         </p>
       </div>
 
@@ -103,12 +103,6 @@ export default function Step3Review({ formData, loading, error, onSubmit, onBack
             <p className="text-outline text-xs mb-0.5">Description</p>
             <p className="text-on-surface font-medium whitespace-pre-wrap">{formData.itemDescription || '—'}</p>
           </div>
-          {formData.lastSeenLocation && (
-            <div>
-              <p className="text-outline text-xs mb-0.5">Last Seen</p>
-              <p className="text-on-surface font-medium">{formData.lastSeenLocation}</p>
-            </div>
-          )}
           {formData.photos.length > 0 && (
             <div>
               <p className="text-outline text-xs mb-2">Photos ({formData.photos.length})</p>
@@ -145,8 +139,8 @@ export default function Step3Review({ formData, loading, error, onSubmit, onBack
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
           ) : (
             <>
-              Submit Report
-              <span className="material-symbols-outlined text-lg">send</span>
+              Search Now
+              <span className="material-symbols-outlined text-lg">search</span>
             </>
           )}
         </button>

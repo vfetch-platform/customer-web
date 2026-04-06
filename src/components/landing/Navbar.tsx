@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface NavbarProps {
   variant?: 'landing' | 'app';
@@ -18,6 +19,10 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar({ variant = 'landing', activeTab, onTabChange, venueLogo, venueName }: NavbarProps) {
+  const pathname = usePathname();
+  const supportPath = variant === 'app' && activeTab ? `${pathname}?tab=${activeTab}` : pathname;
+  const supportHref = `/support?from=${encodeURIComponent(supportPath)}`;
+
   return (
     <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-outline-variant/10">
       <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
@@ -48,7 +53,9 @@ export default function Navbar({ variant = 'landing', activeTab, onTabChange, ve
 
         {/* Right Side */}
         <div className="flex items-center gap-4">
-          <span className="font-body text-sm font-medium text-on-secondary-container hover:text-primary cursor-pointer transition-colors">Help/Support</span>
+          <Link href={supportHref} className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">
+            Help &amp; Support
+          </Link>
           {variant === 'app' && venueLogo && (
             <div className="w-9 h-9 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/10">
               <img alt={venueName || 'Venue'} className="w-full h-full object-cover" src={venueLogo} />

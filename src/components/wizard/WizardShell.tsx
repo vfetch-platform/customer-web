@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Venue, Item } from '@/types';
 import { SearchFormData, DEFAULT_SEARCH_FORM_DATA } from '@/constants/search';
 import { STORAGE_KEY_SEARCH_FORM } from '@/constants/storage';
@@ -12,14 +12,13 @@ import Step1Identity from './Step1Identity';
 import Step2ItemDetails from './Step2ItemDetails';
 import Step3Review from './Step3Review';
 import MatchedItemsView from './MatchedItemsView';
-import SubmissionConfirmation from './SubmissionConfirmation';
 
 interface WizardShellProps {
   venue: Venue;
   onSwitchTab?: (tab: string) => void;
 }
 
-type WizardStep = 1 | 2 | 3 | 'submitted' | 'results';
+type WizardStep = 1 | 2 | 3 | 'results';
 
 const WIZARD_STEPS = [
   { title: 'Identity' },
@@ -29,6 +28,7 @@ const WIZARD_STEPS = [
 
 export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
+  const hasMountedWizardStepRef = useRef(false);
   const [formData, setFormData] = useState<SearchFormData>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -43,7 +43,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [descriptionTouched, setDescriptionTouched] = useState(false);
-  const [descriptionWarningDismissed, setDescriptionWarningDismissed] = useState(false);
+
   const [matchedItems, setMatchedItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,12 +56,22 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     sessionStorage.setItem(STORAGE_KEY_SEARCH_FORM, JSON.stringify(serializable));
   }, [formData]);
 
+  useEffect(() => {
+    if (!hasMountedWizardStepRef.current) {
+      hasMountedWizardStepRef.current = true;
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [wizardStep]);
+
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === 'itemDescription' && !isBelowSoftMin(value)) {
-      setDescriptionWarningDismissed(false);
-    }
     if (fieldErrors[name]) {
       setFieldErrors((prev) => { const next = { ...prev }; delete next[name]; return next; });
     }
@@ -108,10 +118,6 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     if (isBelowHardMin(formData.itemDescription)) {
       errors.itemDescription = 'Please describe your item in more detail';
     }
-    if (isBelowSoftMin(formData.itemDescription) && !isBelowHardMin(formData.itemDescription) && !descriptionWarningDismissed) {
-      setDescriptionWarningDismissed(true);
-      return false;
-    }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -119,14 +125,12 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
   const handleNextStep1 = () => {
     if (validateStep1()) {
       setWizardStep(2);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleNextStep2 = () => {
     if (validateStep2()) {
       setWizardStep(3);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -149,7 +153,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
         name: formData.name,
         email: formData.email,
         phone: formData.phoneCountryCode + ' ' + formData.phone,
-        location: formData.location || formData.lastSeenLocation,
+        location: formData.location,
         datesOfStay: { checkin: formData.checkinDate, checkout: formData.checkoutDate },
         bookingReference: formData.bookingReference || undefined,
         itemDescription: formData.itemDescription,
@@ -158,11 +162,15 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
         photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
       });
 
-      setQueryId(queryResponse.data.id);
-      setWizardStep('submitted');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const newQueryId = queryResponse.data.id;
+      setQueryId(newQueryId);
+
+      // Immediately fetch matches
+      const matchesResponse = await customerApi.getMatchedItems(newQueryId);
+      setMatchedItems(matchesResponse.data);
+      setWizardStep('results');
     } catch (err: unknown) {
-      console.error('Error submitting query:', err);
+      console.error('Error searching:', err);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -195,44 +203,15 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     setClaimId(null);
     setQueryId(null);
     setError(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleEditStep = (step: number) => {
     setWizardStep(step as 1 | 2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleGoToTracking = () => {
     if (onSwitchTab) onSwitchTab('status');
   };
-
-  const handleViewResults = async () => {
-    if (!queryId) return;
-    setLoading(true);
-    try {
-      const matchesResponse = await customerApi.getMatchedItems(queryId);
-      setMatchedItems(matchesResponse.data);
-      setWizardStep('results');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submitted confirmation view
-  if (wizardStep === 'submitted' && queryId) {
-    return (
-      <SubmissionConfirmation
-        formData={formData}
-        queryId={queryId}
-        onGoToTracking={handleGoToTracking}
-        onSubmitAnother={handleSearchAgain}
-      />
-    );
-  }
 
   // Results view
   if (wizardStep === 'results') {
@@ -244,6 +223,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
           error={error}
           claimId={claimId}
           formEmail={formData.email}
+          checkoutDate={formData.checkoutDate}
           onClaimItem={handleClaimItem}
           onSearchAgain={handleSearchAgain}
           onDismissError={() => setError(null)}
@@ -258,9 +238,9 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     <main className="pt-28 pb-20 px-6 max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-2">
-        <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-1">Submit Your Item</h1>
+        <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-1">Find Your Lost Item</h1>
         <p className="text-on-secondary-container text-sm">
-          Step {currentStep} of 3: We need a few details about your stay to ensure your items are curated and fetched with the highest care.
+          Step {currentStep} of 3 — Tell us about your item and we'll instantly search the venue's lost and found.
         </p>
       </div>
 
@@ -290,7 +270,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
           onPhotoRemove={handlePhotoRemove}
           onDescriptionBlur={() => setDescriptionTouched(true)}
           onNext={handleNextStep2}
-          onBack={() => { setWizardStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onBack={() => { setWizardStep(1); }}
         />
       )}
       {wizardStep === 3 && (
@@ -299,7 +279,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
           loading={loading}
           error={error}
           onSubmit={handleSubmit}
-          onBack={() => { setWizardStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onBack={() => { setWizardStep(2); }}
           onEditStep={handleEditStep}
         />
       )}

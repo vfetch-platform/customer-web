@@ -30,15 +30,13 @@ interface ClaimStatusProps {
 
 // Status stepper config
 const STATUS_STEPS = [
-  { key: 'received', label: 'Report Received', icon: 'description' },
-  { key: 'searching', label: 'Search in Progress', icon: 'manage_search' },
-  { key: 'found', label: 'Item Found', icon: 'inventory_2' },
+  { key: 'received', label: 'Claim Received', icon: 'description' },
+  { key: 'verification', label: 'Item Verification', icon: 'verified_user' },
   { key: 'collection', label: 'Ready for Collection', icon: 'assignment' },
 ];
 
 function getStatusStepIndex(claim: Claim): number {
-  if (claim.status === 'collected') return 4;
-  if (claim.status === 'approved' && claim.payment_status === 'completed') return 3;
+  if (claim.status === 'collected') return 3;
   if (claim.status === 'approved') return 2;
   if (claim.status === 'pending') return 1;
   return 0;
@@ -48,26 +46,32 @@ function getStatusTitle(claim: Claim): string {
   if (claim.status === 'collected') return 'Item Collected';
   if (claim.status === 'approved' && claim.payment_status === 'completed') return 'Ready for Collection';
   if (claim.status === 'approved') return 'Item Found';
-  if (claim.status === 'pending') return 'Search in Progress';
+  if (claim.status === 'pending') return 'Verifying Your Claim';
   if (claim.status === 'rejected') return 'Claim Rejected';
   if (claim.status === 'expired') return 'Claim Expired';
-  return 'Report Received';
+  return 'Claim Received';
 }
 
 function getStatusSubtext(claim: Claim): string {
+  if (claim.status === 'approved' && claim.payment_status === 'completed') {
+    return `Your claim has been verified and payment received. Your item is ready for collection.`;
+  }
   if (claim.status === 'approved') {
-    return `Your report #${claim.id.slice(0, 8).toUpperCase()} has been successfully matched. Our concierge is finalizing the handoff details with the venue.`;
+    return `Great news! Your item has been verified and matched. Choose a collection method below to arrange pickup or delivery.`;
   }
   if (claim.status === 'pending') {
-    return `Your report #${claim.id.slice(0, 8).toUpperCase()} is being actively searched. We'll notify you as soon as we find a match.`;
+    return `Our team is verifying your claim against the lost and found records. We'll notify you by email once verification is complete.`;
   }
   if (claim.status === 'collected') {
     return `Your item has been successfully collected. Thank you for using VFetch!`;
   }
   if (claim.status === 'rejected') {
-    return `Unfortunately, your claim was not approved. Please contact the venue if you believe this is an error.`;
+    return `Unfortunately, your claim was not approved. Please contact the venue directly if you believe this is an error.`;
   }
-  return `Your report has been received and logged into our system.`;
+  if (claim.status === 'expired') {
+    return `This claim has expired. Please submit a new search if you are still looking for your item.`;
+  }
+  return `Your claim has been received and logged into our system.`;
 }
 
 export default function ClaimStatus({ venue }: ClaimStatusProps) {
@@ -84,6 +88,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<ClaimStep>('search');
+  const [isCollectionFlowActive, setIsCollectionFlowActive] = useState(false);
   const [confirmationData, setConfirmationData] = useState<ConfirmationData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -181,15 +186,6 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                 <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-1">{getStatusTitle(claim)}</h1>
                 <p className="text-on-secondary-container text-sm leading-relaxed max-w-lg">{getStatusSubtext(claim)}</p>
               </div>
-              <div className="flex gap-3 shrink-0">
-                <button className="bg-primary text-white px-5 py-2.5 rounded-full font-headline font-bold text-sm flex items-center gap-2 hover:bg-primary-container active:scale-95 transition-all">
-                  <span className="material-symbols-outlined text-lg">chat</span>
-                  Message Concierge
-                </button>
-                <button className="bg-white text-primary px-5 py-2.5 rounded-full font-headline font-bold text-sm border border-outline-variant/20 flex items-center gap-2 hover:bg-surface-container-low active:scale-95 transition-all">
-                  Update Info
-                </button>
-              </div>
             </div>
 
             {/* Status Stepper */}
@@ -199,10 +195,11 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                   const currentIdx = getStatusStepIndex(claim);
                   const isComplete = i < currentIdx;
                   const isActive = i === currentIdx;
+                  const highlightConnector = isComplete || isActive;
                   return (
                     <React.Fragment key={s.key}>
                       {i > 0 && (
-                        <div className={`flex-1 h-[2px] mt-5 mx-2 ${isComplete ? 'bg-primary' : 'bg-outline-variant/15'}`} />
+                        <div className={`flex-1 h-[2px] mt-5 mx-2 ${highlightConnector ? 'bg-primary' : 'bg-outline-variant/15'}`} />
                       )}
                       <div className="flex flex-col items-center text-center" style={{ width: '6rem' }}>
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
@@ -230,136 +227,91 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               </div>
             </div>
 
-            {/* Item Details + Timeline Grid */}
-            <div className="grid md:grid-cols-3 gap-6">
-              {/* Item Details */}
-              <div className="md:col-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
-                <h2 className="font-headline text-xl font-bold text-primary mb-5">Item Details</h2>
-                {claim.item && (
-                  <div className="flex flex-col md:flex-row gap-6">
-                    {claim.item.images && claim.item.images.length > 0 && (
-                      <div className="md:w-56 shrink-0">
-                        <img src={claim.item.images[0]} alt={claim.item.title}
-                          className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setLightboxImage(claim.item!.images[0])} />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Category</p>
-                      <p className="font-headline font-bold text-lg text-primary mb-3 capitalize">{claim.item.category || 'Personal Accessory'}</p>
-
-                      <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Description</p>
-                      <p className="text-sm text-on-secondary-container leading-relaxed mb-4">{claim.item.description}</p>
-
-                      <div className="flex flex-wrap gap-2">
-                        {((claim.item as any).match_score || (claim.item as any).similarity_score) && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-primary/20 text-xs font-medium text-primary">
-                            Matched: {Math.round((claim.item as any).match_score || (claim.item as any).similarity_score)}%
-                          </span>
-                        )}
-                        {claim.item.location_found && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
-                            Location: {claim.item.location_found}
-                          </span>
-                        )}
-                        {claim.item.color && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container capitalize">
-                            {claim.item.color}
-                          </span>
-                        )}
-                        {claim.item.brand && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
-                            {claim.item.brand}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Timeline of Updates */}
-              <div className="bg-surface-container-low rounded-2xl p-6 shadow-sm border border-outline-variant/10">
-                <h2 className="font-headline text-lg font-bold text-primary mb-5">Timeline of Updates</h2>
-                <div className="space-y-6">
-                  {claim.status === 'approved' && (
-                    <div className="flex gap-3">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="material-symbols-outlined text-primary text-sm">verified</span>
-                      </div>
-                      <div>
-                        <p className="font-headline font-bold text-sm text-primary">Matched &amp; Found</p>
-                        <p className="text-[10px] text-on-secondary-container">{new Date(claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                        <p className="text-xs text-on-secondary-container mt-1 leading-relaxed">Venue staff confirmed the item matches your description perfectly.</p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex gap-3">
-                    <div className="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="material-symbols-outlined text-on-secondary-container text-sm">search</span>
-                    </div>
-                    <div>
-                      <p className="font-headline font-bold text-sm text-primary">Search Commenced</p>
-                      <p className="text-[10px] text-on-secondary-container">{new Date(claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                      <p className="text-xs text-on-secondary-container mt-1 leading-relaxed">The Digital Concierge initiated a scan of local venue databases.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="material-symbols-outlined text-on-secondary-container text-sm">description</span>
-                    </div>
-                    <div>
-                      <p className="font-headline font-bold text-sm text-primary">Report Received</p>
-                      <p className="text-[10px] text-on-secondary-container">{new Date(claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                      <p className="text-xs text-on-secondary-container mt-1 leading-relaxed">Your lost item report was logged into the Vfetch network.</p>
-                    </div>
-                  </div>
-
-                  {/* Next Step */}
-                  {claim.status === 'approved' && claim.payment_status !== 'completed' && (
-                    <div className="bg-surface-container rounded-xl p-4 mt-2">
-                      <p className="font-headline font-bold text-sm text-primary mb-1">Next Step</p>
-                      <p className="text-xs text-on-secondary-container leading-relaxed">Choose a collection method to arrange pickup or delivery of your item.</p>
-                    </div>
-                  )}
-                  {claim.status === 'approved' && claim.payment_status === 'completed' && (
-                    <div className="bg-surface-container rounded-xl p-4 mt-2">
-                      <p className="font-headline font-bold text-sm text-primary mb-1">Next Step</p>
-                      <p className="text-xs text-on-secondary-container leading-relaxed">We are waiting for the venue&apos;s concierge to issue a collection QR code.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Original Report Summary */}
-            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
-              <h2 className="font-headline text-xl font-bold text-primary mb-5">Original Report Summary</h2>
-              <div className="space-y-4">
-                <div className="flex items-start gap-4 bg-surface-container-low rounded-xl p-4">
-                  <span className="material-symbols-outlined text-primary text-xl mt-0.5">location_on</span>
-                  <div>
-                    <p className="font-headline font-bold text-sm text-primary">Lost at {venue.name}</p>
-                    <p className="text-xs text-on-secondary-container">{claim.item?.location_found || venue.address || 'Location details available on record'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4 bg-surface-container-low rounded-xl p-4">
-                  <span className="material-symbols-outlined text-primary text-xl mt-0.5">calendar_today</span>
-                  <div>
-                    <p className="font-headline font-bold text-sm text-primary">Date &amp; Time Lost</p>
-                    <p className="text-xs text-on-secondary-container">
-                      {claim.item?.date_found
-                        ? new Date(claim.item.date_found).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                        : new Date(claim.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Collection Methods */}
             {claim.status === 'approved' && claim.payment_status !== 'completed' && (
-              <CollectionMethods claim={claim} venue={venue} onCourierBooked={handleCourierBooked} onSelfPickupConfirmed={handleSelfPickupConfirmed} />
+              <CollectionMethods
+                claim={claim}
+                venue={venue}
+                onCourierBooked={handleCourierBooked}
+                onSelfPickupConfirmed={handleSelfPickupConfirmed}
+                onFlowChange={setIsCollectionFlowActive}
+              />
+            )}
+
+            {/* Item Details + Timeline Grid */}
+            {!isCollectionFlowActive && (
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* Item Details */}
+                <div className="md:col-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+                  <h2 className="font-headline text-xl font-bold text-primary mb-5">Item Details</h2>
+                  {claim.item && (
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {claim.item.images && claim.item.images.length > 0 && (
+                        <div className="md:w-56 shrink-0">
+                          <img src={claim.item.images[0]} alt={claim.item.title}
+                            className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setLightboxImage(claim.item!.images[0])} />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Category</p>
+                        <p className="font-headline font-bold text-lg text-primary mb-3 capitalize">{claim.item.category || 'Personal Accessory'}</p>
+
+                        <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Description</p>
+                        <p className="text-sm text-on-secondary-container leading-relaxed mb-4">{claim.item.description}</p>
+
+                        <div className="flex flex-wrap gap-2">
+                          {((claim.item as any).match_score || (claim.item as any).similarity_score) && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-primary/20 text-xs font-medium text-primary">
+                              Matched: {Math.round((claim.item as any).match_score || (claim.item as any).similarity_score)}%
+                            </span>
+                          )}
+                          {claim.item.location_found && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
+                              Location: {claim.item.location_found}
+                            </span>
+                          )}
+                          {claim.item.color && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container capitalize">
+                              {claim.item.color}
+                            </span>
+                          )}
+                          {claim.item.brand && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
+                              {claim.item.brand}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Original Report Summary */}
+                <div className="bg-surface-container-low rounded-2xl p-6 shadow-sm border border-outline-variant/10">
+                  <h2 className="font-headline text-lg font-bold text-primary mb-5">Original Report Summary</h2>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-4 bg-surface-container rounded-xl p-4">
+                      <span className="material-symbols-outlined text-primary text-xl mt-0.5">location_on</span>
+                      <div>
+                        <p className="font-headline font-bold text-sm text-primary">Lost at {venue.name}</p>
+                        <p className="text-xs text-on-secondary-container">{claim.item?.location_found || venue.address || 'Location details available on record'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-4 bg-surface-container rounded-xl p-4">
+                      <span className="material-symbols-outlined text-primary text-xl mt-0.5">calendar_today</span>
+                      <div>
+                        <p className="font-headline font-bold text-sm text-primary">Date &amp; Time Lost</p>
+                        <p className="text-xs text-on-secondary-container">
+                          {claim.item?.date_found
+                            ? new Date(claim.item.date_found).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                            : new Date(claim.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Delivery Tracking */}
@@ -391,19 +343,6 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               </div>
             )}
 
-            {/* Action buttons */}
-            <div className="flex gap-3 pt-2">
-              <button onClick={handleCheckAnother}
-                className="flex-1 py-3 px-4 bg-white text-on-secondary-container border border-outline-variant/20 rounded-full font-headline font-bold text-sm hover:bg-surface-container-low transition-colors">
-                Check Another Claim
-              </button>
-              {claim.status === 'approved' && !claim.collection_method && claim.payment_status !== 'completed' && (
-                <button onClick={() => setStep('collection')}
-                  className="flex-1 py-3 px-4 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
-                  Choose Collection Method
-                </button>
-              )}
-            </div>
           </div>
         )}
 

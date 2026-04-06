@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { customerApi } from '@/lib/api';
@@ -8,8 +8,11 @@ import Footer from '@/components/landing/Footer';
 
 export default function LandingPage() {
   const router = useRouter();
-  const [venueId, setVenueId] = useState('');
+  const pathname = usePathname();
+  const DEFAULT_VENUE_ID = '5e7ff881-3a93-4e22-b9b1-a9128e3c7f4b';
+  const [venueId, setVenueId] = useState(DEFAULT_VENUE_ID);
   const [loading, setLoading] = useState(true);
+  const supportHref = `/support?from=${encodeURIComponent(pathname)}`;
 
   useEffect(() => {
     const fetchVenues = async () => {
@@ -18,9 +21,11 @@ export default function LandingPage() {
         const activeVenues = [...data].filter((v, i, self) =>
           i === self.findIndex((t) => t.id === v.id)
         );
-        if (activeVenues.length > 0) setVenueId(activeVenues[0].id);
+        const preferred = activeVenues.find((v) => v.id === DEFAULT_VENUE_ID);
+        if (preferred) setVenueId(preferred.id);
+        else if (activeVenues.length > 0) setVenueId(activeVenues[0].id);
       } catch {
-        setVenueId('demo-hotel-123');
+        setVenueId(DEFAULT_VENUE_ID);
       } finally {
         setLoading(false);
       }
@@ -45,7 +50,9 @@ export default function LandingPage() {
             <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
             <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
           </Link>
-          <span className="font-body text-sm font-medium text-on-secondary-container hover:text-primary cursor-pointer transition-colors">Help/Support</span>
+          <Link href={supportHref} className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">
+            Help &amp; Support
+          </Link>
         </div>
       </nav>
 
@@ -58,7 +65,7 @@ export default function LandingPage() {
               Effortlessly reuniting you with your <span className="text-surface-tint">belongings.</span>
             </h1>
             <p className="text-on-secondary-container text-base md:text-lg leading-relaxed mb-8 max-w-lg">
-              Our digital concierge service is here to help reunite you with your belongings. Precision tracking meets high-end care.
+              Lost something during your stay? Share a few details and we&apos;ll help you find and recover it quickly.
             </p>
 
             {/* CTAs */}
@@ -131,24 +138,24 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-widest text-surface-tint mb-3">Process</p>
-            <h2 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-4">A seamless journey back to you.</h2>
+            <h2 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-4">How recovery works</h2>
             <p className="text-on-secondary-container text-sm max-w-lg mx-auto leading-relaxed">
-              We combine digital precision with a concierge&apos;s touch to manage the complexities of lost property.
+              A clear, simple flow from reporting your item to getting it back safely.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {[
-              { icon: 'description', title: '1. Quick Report', desc: 'Provide basic details about your item. No complicated forms, just the essentials to help us identify it.' },
-              { icon: 'radar', title: '2. Intelligent Matching', desc: 'Our system scans thousands of venue databases instantly to find potential matches for your lost item.' },
-              { icon: 'sell', title: '3. Secure Return', desc: 'Choose your preferred collection method or have your item securely couriered back to your doorstep.' },
+              { icon: 'description', title: '1. Share Item Details', desc: 'Tell us what you lost, where you stayed, and key identifying details.' },
+              { icon: 'radar', title: '2. Review Possible Matches', desc: 'We search the venue inventory and show likely matches for you to review right away.' },
+              { icon: 'local_shipping', title: '3. Arrange Return', desc: 'Once verified, choose pickup or delivery and follow updates until your item is returned.' },
             ].map((step) => (
-              <div key={step.title} className="text-center md:text-left">
-                <div className="w-12 h-12 rounded-xl bg-white shadow-sm border border-outline-variant/10 flex items-center justify-center mb-4 mx-auto md:mx-0">
+              <div key={step.title} className="bg-white rounded-2xl border border-outline-variant/10 shadow-sm p-6 md:p-7 h-full">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 mx-auto md:mx-0">
                   <span className="material-symbols-outlined text-primary text-xl">{step.icon}</span>
                 </div>
-                <h3 className="font-headline font-bold text-lg text-primary mb-2">{step.title}</h3>
-                <p className="text-on-secondary-container text-sm leading-relaxed">{step.desc}</p>
+                <h3 className="font-headline font-bold text-lg text-primary mb-2 text-center md:text-left">{step.title}</h3>
+                <p className="text-on-secondary-container text-sm leading-relaxed text-center md:text-left">{step.desc}</p>
               </div>
             ))}
           </div>
@@ -158,53 +165,53 @@ export default function LandingPage() {
       {/* Status Update Section */}
       <section className="py-20 md:py-28">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
-          <div className="bg-surface-container-low rounded-3xl p-8 md:p-12 grid md:grid-cols-2 gap-8 items-center">
-          {/* Left */}
-          <div>
-            <span className="inline-block bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-4">
-              Latest Update
-            </span>
-            <h2 className="font-headline text-2xl md:text-3xl font-bold text-primary mb-4 leading-tight">
-              Peace of mind, delivered in real-time.
-            </h2>
-            <p className="text-on-secondary-container text-sm leading-relaxed mb-6">
-              Every lost item is assigned a dedicated concierge status. Get notifications every step of the way.
-            </p>
-            <span className="text-sm font-medium text-primary underline underline-offset-4 cursor-pointer hover:text-surface-tint transition-colors">
-              Learn more about our security
-            </span>
-          </div>
-
-          {/* Right: Status tracker mockup */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-lg">inventory_2</span>
-                </div>
-                <div>
-                  <p className="text-xs text-on-secondary-container">Status Update</p>
-                  <p className="font-headline font-bold text-sm text-primary">Leather Wallet</p>
-                </div>
-              </div>
-              <span className="bg-surface-tint/10 text-surface-tint text-xs font-bold px-3 py-1 rounded-full">
-                MATCH FOUND
+          <div className="bg-surface-container-low rounded-3xl p-8 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Left */}
+            <div>
+              <span className="inline-block bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-4">
+                Latest Update
               </span>
+              <h2 className="font-headline text-2xl md:text-3xl font-bold text-primary mb-4 leading-tight">
+                Peace of mind, delivered in real-time.
+              </h2>
+              <p className="text-on-secondary-container text-sm leading-relaxed mb-6">
+                Follow clear, real-time updates from report to return, so you always know what happens next.
+              </p>
+              <Link href="/security" className="text-sm font-medium text-primary underline underline-offset-4 hover:text-surface-tint transition-colors">
+                Learn more about our security
+              </Link>
             </div>
 
-            {/* Progress bar */}
-            <div className="relative h-2 bg-surface-container rounded-full mb-4">
-              <div className="absolute left-0 top-0 h-2 bg-primary rounded-full" style={{ width: '50%' }} />
-            </div>
+            {/* Right: Status tracker mockup */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10">
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-primary text-lg">inventory_2</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-on-secondary-container">Status Update</p>
+                    <p className="font-headline font-bold text-sm text-primary truncate">Leather Wallet</p>
+                  </div>
+                </div>
+                <span className="bg-surface-tint/10 text-surface-tint text-[11px] font-bold px-3 py-1 rounded-full shrink-0">
+                  MATCH FOUND
+                </span>
+              </div>
 
-            <div className="flex justify-between text-[10px] text-on-secondary-container uppercase tracking-wider">
-              <span className="text-primary font-bold">Reported</span>
-              <span className="text-primary font-bold">Located</span>
-              <span>In Transit</span>
-              <span>Returned</span>
+              {/* Progress bar */}
+              <div className="relative h-2 bg-surface-container rounded-full mb-4">
+                <div className="absolute left-0 top-0 h-2 bg-primary rounded-full" style={{ width: '50%' }} />
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 text-[10px] text-on-secondary-container uppercase tracking-wider">
+                <span className="text-primary font-bold text-center">Reported</span>
+                <span className="text-primary font-bold text-center">Located</span>
+                <span className="text-center">In Transit</span>
+                <span className="text-center">Returned</span>
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </section>
 

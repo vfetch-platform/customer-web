@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Claim, CourierQuote } from '@/types';
@@ -23,9 +23,10 @@ interface CollectionMethodsProps {
   onCourierBooked?: (booking: BookingResult, serviceName?: string, estimatedDelivery?: string) => void;
   onSelfPickupConfirmed?: (paymentIntentId: string) => void;
   onBack?: () => void;
+  onFlowChange?: (isInFlow: boolean) => void;
 }
 
-export default function CollectionMethods({ claim, venue, onCourierBooked, onSelfPickupConfirmed, onBack }: CollectionMethodsProps) {
+export default function CollectionMethods({ claim, venue, onCourierBooked, onSelfPickupConfirmed, onBack, onFlowChange }: CollectionMethodsProps) {
   const [selectedMethod, setSelectedMethod] = useState<'self_pickup' | 'parcel2go' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [addressFormData, setAddressFormData] = useState<AddressFormValues | null>(null);
@@ -111,6 +112,10 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
   // Derive collection flow step for the mini stepper
   const flowStep = !selectedMethod ? 1 : (showPayment || showSelfPickupPayment) ? 3 : 2;
 
+  useEffect(() => {
+    onFlowChange?.(selectedMethod !== null);
+  }, [selectedMethod, onFlowChange]);
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -166,7 +171,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
               </div>
               <button onClick={() => handleMethodSelect('self_pickup')}
                 className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
-                Select Self Pickup
+                Self Pickup
               </button>
             </div>
 
@@ -189,8 +194,8 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
                 </div>
               </div>
               <button onClick={() => handleMethodSelect('parcel2go')}
-                className="w-full py-3 bg-white text-primary rounded-full font-headline font-bold text-sm border border-outline-variant/20 hover:bg-surface-container-low active:scale-95 transition-all">
-                Select Direct Courier
+                className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
+                Direct Courier
               </button>
             </div>
 

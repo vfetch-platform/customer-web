@@ -11,13 +11,14 @@ interface MatchedItemsViewProps {
   error: string | null;
   claimId: string | null;
   formEmail: string;
+  checkoutDate?: string;
   onClaimItem: (item: Item) => void;
   onSearchAgain: () => void;
   onDismissError: () => void;
 }
 
 export default function MatchedItemsView({
-  matchedItems, loading, error, claimId, formEmail,
+  matchedItems, loading, error, claimId, formEmail, checkoutDate,
   onClaimItem, onSearchAgain, onDismissError,
 }: MatchedItemsViewProps) {
   const claimSuccessRef = useRef<HTMLDivElement>(null);
@@ -85,21 +86,41 @@ export default function MatchedItemsView({
       )}
 
       {/* No matches */}
-      {!loading && matchedItems.length === 0 && (
-        <div className="text-center py-20">
-          <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="material-symbols-outlined text-4xl text-outline">search_off</span>
+      {!loading && matchedItems.length === 0 && (() => {
+        const isRecentLoss = (() => {
+          if (!checkoutDate) return false;
+          const checkout = new Date(checkoutDate);
+          const now = new Date();
+          const hoursDiff = (now.getTime() - checkout.getTime()) / (1000 * 60 * 60);
+          return hoursDiff < 24;
+        })();
+        return (
+          <div className="text-center py-20">
+            <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="material-symbols-outlined text-4xl text-outline">
+                {isRecentLoss ? 'schedule' : 'search_off'}
+              </span>
+            </div>
+            <h3 className="font-headline text-2xl font-bold text-primary mb-3">
+              {isRecentLoss ? 'Your item may not be listed yet' : "We couldn't find your item"}
+            </h3>
+             <p className="text-on-secondary-container mb-8 max-w-md mx-auto">
+               {isRecentLoss
+                 ? "If your item was recently handed in, it may not have been logged yet. Please check back in a few hours. Venue staff update the lost and found inventory regularly."
+                 : "We couldn't find a match for your item just yet. If you can, try searching again with a few more details like the colour, brand, or size."}
+             </p>
+            {isRecentLoss && (
+              <p className="text-xs text-on-secondary-container/60 mb-6 max-w-sm mx-auto">
+                We&apos;ll search the latest inventory each time you search.
+              </p>
+            )}
+            <button onClick={onSearchAgain}
+              className="bg-primary text-white py-3.5 px-8 rounded-full font-headline font-bold hover:bg-primary/90 active:scale-95 transition-all">
+              {isRecentLoss ? 'Search Again Later' : 'Try Another Search'}
+            </button>
           </div>
-          <h3 className="font-headline text-2xl font-bold text-primary mb-3">No matches found</h3>
-          <p className="text-on-secondary-container mb-8 max-w-md mx-auto">
-            We couldn&apos;t find any items matching your description. Try searching again with different details.
-          </p>
-          <button onClick={onSearchAgain}
-            className="bg-primary text-white py-3.5 px-8 rounded-full font-headline font-bold hover:bg-primary-container active:scale-95 transition-all">
-            Try Another Search
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Grid */}
       {!loading && matchedItems.length > 0 && (

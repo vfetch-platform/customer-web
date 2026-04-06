@@ -38,7 +38,6 @@ export interface SearchFormData {
   bookingReference: string;
   category: string;
   itemDescription: string;
-  lastSeenLocation: string;
   photos: File[];
 }
 
@@ -53,15 +52,20 @@ export const DEFAULT_SEARCH_FORM_DATA: SearchFormData = {
   bookingReference: '',
   category: '',
   itemDescription: '',
-  lastSeenLocation: '',
   photos: [],
 };
 
 export const ITEM_CATEGORIES = [
-  { key: 'electronics', label: 'Electronics', icon: 'headphones' },
+  { key: 'phones', label: 'Phones', icon: 'smartphone' },
+  { key: 'wallets', label: 'Wallets', icon: 'account_balance_wallet' },
+  { key: 'keys', label: 'Keys', icon: 'key' },
+  { key: 'bags', label: 'Bags', icon: 'shopping_bag' },
   { key: 'clothing', label: 'Clothing', icon: 'checkroom' },
   { key: 'jewelry', label: 'Jewelry', icon: 'diamond' },
-  { key: 'accessories', label: 'Accessories', icon: 'business_center' },
+  { key: 'electronics', label: 'Electronics', icon: 'headphones' },
+  { key: 'cards', label: 'Cards & ID', icon: 'credit_card' },
+  { key: 'documents', label: 'Documents', icon: 'description' },
+  { key: 'other', label: 'Other', icon: 'category' },
 ] as const;
 
 export const PHOTO_MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB

@@ -59,7 +59,7 @@ export default function Step2ItemDetails({
       {/* Item Category */}
       <section className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
         <p className="text-xs font-bold uppercase tracking-wider text-on-secondary-container mb-4">Item Category</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {ITEM_CATEGORIES.map((cat) => (
             <button
               key={cat.key}
@@ -114,20 +114,6 @@ export default function Step2ItemDetails({
             </div>
           </div>
         )}
-      </section>
-
-      {/* Last Seen Location */}
-      <section>
-        <label htmlFor="lastSeenLocation" className="block text-sm font-bold text-on-surface mb-2">Where was it last seen?</label>
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">location_on</span>
-          <input
-            id="lastSeenLocation" name="lastSeenLocation" type="text"
-            value={formData.lastSeenLocation} onChange={onInputChange}
-            className="w-full bg-white rounded-xl pl-11 pr-4 py-3.5 text-on-surface placeholder:text-outline/40 border border-outline-variant/20 focus:border-primary transition-colors"
-            placeholder="E.g. Terminal 2 near Gate B14 or Lobby Cafe"
-          />
-        </div>
       </section>
 
       {/* Photo Upload */}
