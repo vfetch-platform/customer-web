@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
 }
 
 /* Material Symbols base config */
@@ -59,13 +59,8 @@ textarea:focus {
   }
 }
 
-/* Hide native date picker icon so custom Material Symbols icon shows cleanly */
+/* Style native date picker icon */
 input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  position: absolute;
-  right: 0;
-  width: 100%;
-  height: 100%;
   cursor: pointer;
 }
 

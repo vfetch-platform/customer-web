@@ -40,6 +40,8 @@ npm run build
 npm start
 ```
 
+If you are using **proxy mode**, make sure `BACKEND_URL` is set before running `npm run build` or `npm start`.
+
 ## URL Structure
 
 - `/` - Landing page with demo links
@@ -48,7 +50,22 @@ npm start
 
 ## Environment Variables
 
+You can run the app in one of two API modes.
+
+### Option 1: Proxy mode
+
+Use this when the frontend should call `/api` and Next.js should proxy those requests to your backend.
+
 Create a `.env.local` file:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=/api
+BACKEND_URL=http://localhost:3000
+```
+
+### Option 2: Direct mode
+
+Use this when the frontend should call the backend API directly.
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api
@@ -95,4 +112,7 @@ The app can be deployed to any platform that supports Next.js:
 - AWS Amplify
 - Docker containers
 
-Make sure to set the `NEXT_PUBLIC_API_BASE_URL` environment variable to point to your backend API.
+Make sure your API environment variables match the mode you are using:
+
+- **Proxy mode:** `NEXT_PUBLIC_API_BASE_URL=/api` and `BACKEND_URL` points to the backend origin
+- **Direct mode:** `NEXT_PUBLIC_API_BASE_URL` points directly to the backend `/api` base URL

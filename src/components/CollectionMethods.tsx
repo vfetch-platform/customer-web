@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Claim, CourierQuote } from '@/types';
@@ -23,10 +23,11 @@ interface CollectionMethodsProps {
   onCourierBooked?: (booking: BookingResult, serviceName?: string, estimatedDelivery?: string) => void;
   onSelfPickupConfirmed?: (paymentIntentId: string) => void;
   onBack?: () => void;
+  onFlowChange?: (isInFlow: boolean) => void;
 }
 
-export default function CollectionMethods({ claim, venue, onCourierBooked, onSelfPickupConfirmed, onBack }: CollectionMethodsProps) {
-  const [selectedMethod, setSelectedMethod] = useState<'self_pickup' | 'parcel2go' | 'uber_courier' | null>(null);
+export default function CollectionMethods({ claim, venue, onCourierBooked, onSelfPickupConfirmed, onBack, onFlowChange }: CollectionMethodsProps) {
+  const [selectedMethod, setSelectedMethod] = useState<'self_pickup' | 'parcel2go' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [addressFormData, setAddressFormData] = useState<AddressFormValues | null>(null);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -38,13 +39,12 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
   const [showSelfPickupPayment, setShowSelfPickupPayment] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentQuote, setPaymentQuote] = useState<CourierQuote | null>(null);
-  const [feeBreakdown, setFeeBreakdown] = useState<{ courierCost: number; platformFee: number; total: number; } | null>(null);
+  const [, setFeeBreakdown] = useState<{ courierCost: number; platformFee: number; total: number } | null>(null);
 
-  const handleMethodSelect = (method: 'self_pickup' | 'parcel2go' | 'uber_courier') => {
+  const handleMethodSelect = (method: 'self_pickup' | 'parcel2go') => {
     setSelectedMethod(method);
     setError(null); setSuccess(null); setQuotes([]); setQuotesLoaded(false); setSelectedQuote(null);
     if (method === 'self_pickup') { setAddressFormData(null); setIsEditingAddress(false); setSubmittingAddress(false); setDeliveryAddress(''); }
@@ -73,7 +73,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
   };
 
   const handlePaymentSuccess = (booking: BookingResult) => {
-    setTrackingNumber(booking.tracking_number); setShowPayment(false);
+    setShowPayment(false);
     onCourierBooked?.(booking, paymentQuote?.service, paymentQuote?.estimated_delivery);
   };
   const handlePaymentCancel = () => { setShowPayment(false); setPaymentQuote(null); setFeeBreakdown(null); };
@@ -109,151 +109,154 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
   const parsedItemValue = parseFloat(itemValue);
   const isItemValueValid = !isNaN(parsedItemValue) && parsedItemValue > 0;
 
+  // Derive collection flow step for the mini stepper
+  const flowStep = !selectedMethod ? 1 : (showPayment || showSelfPickupPayment) ? 3 : 2;
+
+  useEffect(() => {
+    onFlowChange?.(selectedMethod !== null);
+  }, [selectedMethod, onFlowChange]);
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="text-center">
+      <div>
         {onBack && (
-          <button onClick={onBack} className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-headline font-bold gap-1 mb-6">
+          <button onClick={onBack} className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-medium gap-1 mb-4">
             <span className="material-symbols-outlined text-lg">arrow_back</span> Back to details
           </button>
         )}
-        {!selectedMethod && (
-          <>
-            <h2 className="font-headline text-4xl md:text-5xl font-extrabold text-primary tracking-tight mb-4">Select Collection Method</h2>
-            <p className="font-body text-on-secondary-container text-lg max-w-2xl mx-auto">Choose how you would like to retrieve your lost item.</p>
-          </>
-        )}
+        <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-2">Choose Your Collection Method</h1>
+        <p className="text-on-secondary-container text-sm max-w-lg">
+          Select how you would like to receive your recovered item. Our concierge partners ensure safe and professional handling of your belongings.
+        </p>
+      </div>
+
+      {/* Mini flow stepper */}
+      <div className="flex items-center gap-2 text-sm">
+        {[
+          { num: 1, label: 'Method' },
+          { num: 2, label: 'Details' },
+          { num: 3, label: 'Payment' },
+        ].map((s, i) => (
+          <div key={s.num} className="flex items-center gap-2">
+            {i > 0 && <div className={`w-12 h-[1.5px] ${flowStep > s.num - 1 ? 'bg-primary' : 'bg-outline-variant/20'}`} />}
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+              flowStep >= s.num ? 'bg-primary text-white' : 'bg-surface-container-high text-outline'
+            }`}>
+              {s.num}
+            </div>
+            <span className={`text-xs font-medium ${flowStep >= s.num ? 'text-primary' : 'text-outline'}`}>{s.label}</span>
+          </div>
+        ))}
       </div>
 
       {error && <ErrorBanner message={error} variant="error" onDismiss={() => setError(null)} />}
-      {success && <div className="bg-tertiary-fixed/10 rounded-xl p-4"><p className="text-on-tertiary-fixed-variant">{success}</p></div>}
+      {success && <div className="bg-tertiary-fixed/10 rounded-xl p-4"><p className="text-on-tertiary-fixed-variant text-sm">{success}</p></div>}
 
-      {/* Method Selection Cards */}
+      {/* ═══ METHOD SELECTION ═══ */}
       {!selectedMethod && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Self Pickup */}
-            <section onClick={() => handleMethodSelect('self_pickup')}
-              className="flex flex-col h-full bg-surface-container-lowest rounded-[2.5rem] p-8 shadow-[0px_24px_48px_rgba(7,30,39,0.04)] ghost-border transition-all hover:shadow-[0px_32px_64px_rgba(7,30,39,0.08)] cursor-pointer">
-              <div className="flex-grow">
-                <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center mb-8">
-                  <span className="material-symbols-outlined text-surface-tint text-3xl">storefront</span>
-                </div>
-                <h3 className="font-headline text-2xl font-bold text-primary mb-4 tracking-tight">Self Pickup</h3>
-                <p className="text-on-secondary-container mb-8">Collect your item directly from the venue at your convenience.</p>
-                <div className="space-y-4 mb-8">
-                  <div className="bg-surface-container-low p-5 rounded-2xl">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-2">Venue</p>
-                    <p className="font-headline font-bold text-primary">{venue.name}</p>
-                    <p className="text-sm text-on-secondary-container">{venue.address}</p>
-                  </div>
-                </div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10 flex flex-col">
+              <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center mb-5">
+                <span className="material-symbols-outlined text-primary text-xl">location_on</span>
               </div>
-              <div className="w-full py-4 bg-primary text-white rounded-full font-headline font-bold text-lg text-center hover:opacity-95 transition-all shadow-lg shadow-primary/20">
-                Select Self Pickup
+              <h3 className="font-headline text-lg font-bold text-primary mb-2">Self Pickup</h3>
+              <p className="text-on-secondary-container text-sm mb-5 flex-grow">Collect from the venue directly during opening hours.</p>
+              <div className="bg-surface-container-low rounded-xl p-4 mb-5">
+                <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-1">Venue Address</p>
+                <p className="font-headline font-bold text-sm text-primary">{venue.address?.split(',')[0] || venue.name}</p>
+                <p className="text-xs text-on-secondary-container">{venue.address?.split(',').slice(1).join(',').trim() || ''}</p>
               </div>
-            </section>
-
-            {/* Parcel2Go */}
-            <section onClick={() => handleMethodSelect('parcel2go')}
-              className="flex flex-col h-full bg-surface-container-lowest rounded-[2.5rem] p-8 shadow-[0px_24px_48px_rgba(7,30,39,0.04)] ghost-border transition-all hover:shadow-[0px_32px_64px_rgba(7,30,39,0.08)] cursor-pointer">
-              <div className="flex-grow">
-                <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center mb-8">
-                  <span className="material-symbols-outlined text-surface-tint text-3xl">local_shipping</span>
-                </div>
-                <h3 className="font-headline text-2xl font-bold text-primary mb-4 tracking-tight">Parcel2Go Courier</h3>
-                <p className="text-on-secondary-container mb-8">Best for long-distance shipping with full tracking and insurance.</p>
-                <div className="space-y-4 mb-8">
-                  <div className="bg-surface-container-low p-5 rounded-2xl">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-2">Service Type</p>
-                    <p className="font-headline font-bold text-primary">Standard &amp; Express</p>
-                    <p className="text-sm text-on-secondary-container">Domestic and International</p>
-                  </div>
-                  <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary mb-2">Starting From</p>
-                    <p className="font-headline text-3xl font-extrabold text-primary tracking-tight">&pound;8.99</p>
-                  </div>
-                </div>
-              </div>
-              <div className="w-full py-4 bg-primary text-white rounded-full font-headline font-bold text-lg text-center hover:opacity-95 transition-all shadow-lg shadow-primary/20">
-                Select Parcel2Go
-              </div>
-            </section>
-
-            {/* Uber Courier — Dark card */}
-            <section onClick={() => handleMethodSelect('uber_courier')}
-              className="flex flex-col h-full bg-on-primary-fixed rounded-[2.5rem] p-8 shadow-[0px_24px_48px_rgba(7,30,39,0.04)] transition-all hover:shadow-[0px_32px_64px_rgba(0,0,0,0.2)] cursor-pointer">
-              <div className="flex-grow">
-                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-8">
-                  <span className="material-symbols-outlined text-tertiary-fixed text-3xl">electric_car</span>
-                </div>
-                <h3 className="font-headline text-2xl font-bold text-white mb-4 tracking-tight">Uber Courier</h3>
-                <p className="text-on-primary/70 mb-8">Immediate local delivery within a 15-mile radius. Delivered in under 90 mins.</p>
-                <div className="space-y-4 mb-8">
-                  <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-tertiary-fixed/80 mb-2">Estimated Arrival</p>
-                    <p className="font-headline font-bold text-white">Within 90 Minutes</p>
-                    <p className="text-sm text-on-primary/60">Real-time GPS tracking</p>
-                  </div>
-                  <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-tertiary-fixed/80 mb-2">Availability</p>
-                    <p className="text-sm font-medium text-white">On-demand 24/7</p>
-                    <p className="text-sm text-on-primary/60">Local destination required</p>
-                  </div>
-                </div>
-              </div>
-              <div className="w-full py-4 bg-tertiary-fixed text-on-tertiary-fixed rounded-full font-headline font-bold text-lg text-center hover:scale-[1.02] transition-all shadow-lg shadow-tertiary-fixed/20">
-                Request Uber
-              </div>
-            </section>
-
-            {/* Uber Parcel — Coming Soon */}
-            <section className="flex flex-col h-full bg-on-primary-fixed/80 rounded-[2.5rem] p-8 opacity-60 cursor-not-allowed relative">
-              <span className="absolute top-6 right-6 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">Coming Soon</span>
-              <div className="flex-grow">
-                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-8">
-                  <span className="material-symbols-outlined text-tertiary-fixed/50 text-3xl">bolt</span>
-                </div>
-                <h3 className="font-headline text-2xl font-bold text-white/60 mb-4 tracking-tight">Uber Parcel</h3>
-                <p className="text-white/40 mb-8">Ultra-fast parcel delivery within the city via Uber Direct.</p>
-                <div className="space-y-4 mb-8">
-                  <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/30 mb-2">Speed</p>
-                    <p className="font-headline font-bold text-white/50">Under 1 Hour</p>
-                  </div>
-                </div>
-              </div>
-              <div className="w-full py-4 bg-white/10 text-white/40 rounded-full font-headline font-bold text-lg text-center">
-                Coming Soon
-              </div>
-            </section>
-          </div>
-
-          {/* Help Section */}
-          <section className="mt-12 py-16 px-8 bg-surface-container-low rounded-[3rem] text-center border border-white/50">
-            <h3 className="font-headline text-3xl font-bold text-primary mb-4 tracking-tight">Need assistance?</h3>
-            <p className="text-on-secondary-container mb-10 max-w-xl mx-auto">Our hospitality team is available 24/7 to help you navigate the recovery process.</p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <button className="flex items-center justify-center gap-3 px-10 py-4 bg-white text-primary font-headline font-bold rounded-full hover:bg-primary/5 transition-all shadow-sm">
-                <span className="material-symbols-outlined text-xl">help_center</span> Visit Help Center
-              </button>
-              <button className="flex items-center justify-center gap-3 px-10 py-4 bg-primary text-white font-headline font-bold rounded-full hover:opacity-90 transition-all shadow-md shadow-primary/10">
-                <span className="material-symbols-outlined text-xl">chat_bubble</span> Live Support
+              <button onClick={() => handleMethodSelect('self_pickup')}
+                className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
+                Self Pickup
               </button>
             </div>
-          </section>
+
+            {/* Direct Courier */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10 flex flex-col">
+              <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center mb-5">
+                <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
+              </div>
+              <h3 className="font-headline text-lg font-bold text-primary mb-2">Direct Courier</h3>
+              <p className="text-on-secondary-container text-sm mb-5 flex-grow">Secure tracked shipping with full insurance for long distances.</p>
+              <p className="font-headline text-2xl font-bold text-primary mb-1">&pound;8.99 <span className="text-sm font-normal text-on-secondary-container">Starting from</span></p>
+              <div className="space-y-2 mb-5 mt-3">
+                <div className="flex items-center gap-2 text-xs text-on-secondary-container">
+                  <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  Next-day delivery
+                </div>
+                <div className="flex items-center gap-2 text-xs text-on-secondary-container">
+                  <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  Real-time tracking
+                </div>
+              </div>
+              <button onClick={() => handleMethodSelect('parcel2go')}
+                className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
+                Direct Courier
+              </button>
+            </div>
+
+            {/* Uber Courier — Disabled */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10 flex flex-col opacity-60 relative">
+              <span className="absolute top-4 right-4 bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Fastest</span>
+              <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center mb-5">
+                <span className="material-symbols-outlined text-primary text-xl">electric_car</span>
+              </div>
+              <h3 className="font-headline text-lg font-bold text-primary mb-2">Uber Courier</h3>
+              <p className="text-on-secondary-container text-sm mb-5 flex-grow">Immediate local delivery within 15 miles of the venue.</p>
+              <p className="font-headline text-2xl font-bold text-primary mb-1">Under 90 <span className="text-sm font-normal text-on-secondary-container">minutes</span></p>
+              <div className="space-y-2 mb-5 mt-3">
+                <div className="flex items-center gap-2 text-xs text-on-secondary-container">
+                  <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  Direct to your door
+                </div>
+                <div className="flex items-center gap-2 text-xs text-on-secondary-container">
+                  <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  Driver phone support
+                </div>
+              </div>
+              <button disabled
+                className="w-full py-3 bg-white text-outline rounded-full font-headline font-bold text-sm border border-outline-variant/20 cursor-not-allowed">
+                Coming Soon
+              </button>
+            </div>
+          </div>
+
+          {/* Uber Courier Premium Section */}
+          <div className="bg-surface-container-low rounded-2xl overflow-hidden">
+            <div className="grid md:grid-cols-2 gap-0">
+              <div className="p-8 md:p-10 flex flex-col justify-center">
+                <span className="inline-block bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-4 w-fit">
+                  Premium Service
+                </span>
+                <h2 className="font-headline text-2xl md:text-3xl font-bold text-primary mb-3">Uber Courier</h2>
+                <p className="text-on-secondary-container text-sm leading-relaxed mb-6">
+                  Looking for ultra-fast, point-to-point delivery within the city? We are expanding our premium concierge network to include dedicated parcel carriers.
+                </p>
+                <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                  <span className="material-symbols-outlined text-lg">schedule</span>
+                  <span className="font-medium">Coming Soon</span>
+                </div>
+              </div>
+              <div className="min-h-[240px]">
+                <img src="/uber_car.avif" alt="Uber Courier" className="w-full h-full object-cover" />
+              </div>
+            </div>
+          </div>
         </>
       )}
 
-      {/* ─── Self Pickup Details ─── */}
+      {/* ═══ SELF PICKUP DETAILS ═══ */}
       {selectedMethod === 'self_pickup' && (
         <div>
           <button type="button" onClick={() => { setSelectedMethod(null); setError(null); }}
-            className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-headline font-bold gap-1 mb-6">
+            className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-medium gap-1 mb-6">
             <span className="material-symbols-outlined text-lg">arrow_back</span> Back to collection methods
           </button>
-          <div className="bg-surface-container-low rounded-[2rem] p-8">
+          <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
             <h3 className="font-headline text-xl font-bold text-primary mb-4">Self Pickup Instructions</h3>
             <div className="space-y-3 text-on-secondary-container text-sm mb-6">
               <p>1. Complete the platform fee payment below</p>
@@ -269,7 +272,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
             </div>
             {!showSelfPickupPayment && (
               <button onClick={handleSelfPickup} disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white rounded-full font-headline font-bold text-lg hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 disabled:opacity-50">
+                className="w-full py-3.5 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50">
                 Proceed to Payment
               </button>
             )}
@@ -283,19 +286,19 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
         </div>
       )}
 
-      {/* ─── Courier Flow ─── */}
-      {(selectedMethod === 'parcel2go' || selectedMethod === 'uber_courier') && (
+      {/* ═══ COURIER FLOW ═══ */}
+      {selectedMethod === 'parcel2go' && (
         <div className="space-y-6">
           <button type="button" onClick={() => { setSelectedMethod(null); setQuotes([]); setSelectedQuote(null); setError(null); }}
-            className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-headline font-bold gap-1">
+            className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-medium gap-1">
             <span className="material-symbols-outlined text-lg">arrow_back</span> Back to collection methods
           </button>
 
-          <div className="bg-surface-container-lowest rounded-[2rem] p-8 editorial-shadow">
+          <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
             <h3 className="font-headline text-xl font-bold text-primary mb-6">Delivery Details</h3>
             {(!addressFormData || isEditingAddress) && (
               <CourierAddressForm stepNumber={1}
-                title={selectedMethod === 'parcel2go' ? 'Courier delivery address' : 'Express local delivery address'}
+                title="Courier delivery address"
                 submitting={submittingAddress} onSubmit={handleAddressSubmit} initialValue={getAddressFormInitialValue()} />
             )}
             {addressFormData && !isEditingAddress && (
@@ -311,20 +314,20 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
               </div>
             )}
 
-            {addressFormData && !isEditingAddress && quotes.length === 0 && (
+            {addressFormData && !isEditingAddress && quotes.length === 0 && !showPayment && (
               <div className="mt-6 space-y-4">
                 <div>
-                  <label htmlFor="itemValue" className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-2">Estimated Item Value (&pound;) *</label>
+                  <label htmlFor="itemValue" className="text-sm font-medium text-on-surface block mb-2">Estimated Item Value (&pound;)</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-outline font-medium">&pound;</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-outline font-medium">&pound;</span>
                     <input type="text" inputMode="decimal" id="itemValue" value={itemValue}
-                      onChange={(e) => setItemValue(e.target.value)} placeholder="e.g., 50"
-                      className="w-full pl-7 pr-3 py-3 bg-surface-container-low border-0 border-b border-outline-variant/30 text-on-surface placeholder:text-outline/50 transition-all" />
+                      onChange={(e) => setItemValue(e.target.value)} placeholder="e.g. 50"
+                      className="w-full pl-8 pr-4 py-3.5 bg-surface-container-low rounded-xl border border-outline-variant/20 focus:border-primary text-on-surface placeholder:text-outline/40 transition-colors" />
                   </div>
-                  <p className="text-xs text-outline mt-1">Used for insurance purposes. Maximum &pound;{MAX_ITEM_VALUE.toLocaleString()}.</p>
+                  <p className="text-xs text-on-secondary-container mt-1">Used for insurance purposes. Maximum &pound;{MAX_ITEM_VALUE.toLocaleString()}.</p>
                 </div>
                 <button onClick={handleGetQuotes} disabled={loading || !deliveryAddress.trim() || !isItemValueValid}
-                  className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white rounded-full font-headline font-bold text-lg hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="w-full py-3.5 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                   {loading ? 'Getting Quotes...' : 'Get Delivery Quotes'}
                 </button>
               </div>
@@ -337,7 +340,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
               <span className="material-symbols-outlined text-4xl text-outline mb-3">local_shipping</span>
               <p className="font-headline font-bold text-primary mb-1">No delivery quotes available</p>
               <p className="text-on-secondary-container text-sm mb-4">We couldn&apos;t find courier options for this address.</p>
-              <button onClick={() => { setSelectedMethod(null); setQuotesLoaded(false); }} className="text-surface-tint hover:underline text-sm font-headline font-bold">
+              <button onClick={() => { setSelectedMethod(null); setQuotesLoaded(false); }} className="text-surface-tint hover:underline text-sm font-medium">
                 Choose a different method
               </button>
             </div>
@@ -347,47 +350,32 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
           {quotes.length > 0 && !showPayment && (
             <div className="space-y-4">
               <button type="button" onClick={() => { setQuotes([]); setSelectedQuote(null); setError(null); }}
-                className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-headline font-bold gap-1">
+                className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-medium gap-1">
                 <span className="material-symbols-outlined text-lg">arrow_back</span> Back to delivery details
               </button>
               <div className="flex items-start gap-3 rounded-xl bg-tertiary-fixed/10 p-4">
-                <span className="material-symbols-outlined text-on-tertiary-fixed-variant mt-0.5">info</span>
+                <span className="material-symbols-outlined text-on-tertiary-fixed-variant mt-0.5 text-sm">info</span>
                 <p className="text-sm text-on-tertiary-fixed-variant">A platform fee of <strong>&pound;{PLATFORM_FEE.toFixed(2)}</strong> applies to all claims.</p>
               </div>
               <h4 className="font-headline font-bold text-primary">Available Delivery Options</h4>
               {quotes.map((quote) => (
                 <div key={quote.id} onClick={() => setSelectedQuote(quote)}
-                  className={`bg-surface-container-lowest rounded-[1.5rem] p-6 ghost-border cursor-pointer transition-all hover:translate-y-[-2px] ${
-                    selectedQuote?.id === quote.id ? 'ring-2 ring-surface-tint shadow-lg' : 'editorial-shadow'
+                  className={`bg-white rounded-2xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md ${
+                    selectedQuote?.id === quote.id ? 'border-primary ring-1 ring-primary' : 'border-outline-variant/10'
                   }`}>
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h5 className="font-headline font-bold text-primary flex items-center gap-2">
-                        {quote.service}
-                        {quote.provider && (
-                          <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wide ${
-                            quote.provider === 'uber_parcel' ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-surface-container-high text-on-surface'
-                          }`}>{quote.provider === 'uber_parcel' ? 'uber parcel' : quote.provider}</span>
-                        )}
-                      </h5>
-                      <p className="text-xs text-on-secondary-container mt-0.5">
-                        {quote.estimated_delivery}
-                        {quote.provider === 'parcel2go' && quote.metadata?.insurance && <> &middot; Insured &pound;{quote.metadata.insurance}</>}
-                        {quote.provider === 'uber' && quote.metadata?.distance_miles && <> &middot; {quote.metadata.distance_miles.toFixed(1)} mi</>}
-                      </p>
+                      <h5 className="font-headline font-bold text-primary">{quote.service}</h5>
+                      <p className="text-xs text-on-secondary-container mt-0.5">{quote.estimated_delivery}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-headline text-2xl font-extrabold text-primary">&pound;{(quote.price + PLATFORM_FEE).toFixed(2)}</p>
-                    </div>
+                    <p className="font-headline text-2xl font-bold text-primary">&pound;{(quote.price + PLATFORM_FEE).toFixed(2)}</p>
                   </div>
                   <div className="text-xs text-on-secondary-container space-y-0.5 mb-3">
-                    <p>Courier: &pound;{quote.price.toFixed(2)}</p>
-                    <p>Platform fee: &pound;{PLATFORM_FEE.toFixed(2)}</p>
-                    <p className="font-bold text-on-surface">Total: &pound;{(quote.price + PLATFORM_FEE).toFixed(2)}</p>
+                    <p>Courier: &pound;{quote.price.toFixed(2)} + Platform fee: &pound;{PLATFORM_FEE.toFixed(2)}</p>
                   </div>
                   <p className="text-on-secondary-container text-sm mb-4">{quote.description}</p>
                   <button onClick={(e) => { e.stopPropagation(); handleBookCourier(quote); }} disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-primary to-primary-container text-white rounded-full font-headline font-bold hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/10 disabled:opacity-50">
+                    className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50">
                     {loading && selectedQuote?.id === quote.id ? 'Loading...' : 'Book & Pay'}
                   </button>
                 </div>

@@ -31,20 +31,43 @@ export interface SearchFormData {
   name: string;
   email: string;
   phone: string;
+  phoneCountryCode: string;
   location: string;
   checkinDate: string;
   checkoutDate: string;
   bookingReference: string;
+  category: string;
   itemDescription: string;
+  photos: File[];
 }
 
 export const DEFAULT_SEARCH_FORM_DATA: SearchFormData = {
   name: '',
   email: '',
   phone: '',
+  phoneCountryCode: '+1',
   location: '',
   checkinDate: '',
   checkoutDate: '',
   bookingReference: '',
+  category: '',
   itemDescription: '',
+  photos: [],
 };
+
+export const ITEM_CATEGORIES = [
+  { key: 'phones', label: 'Phones', icon: 'smartphone' },
+  { key: 'wallets', label: 'Wallets', icon: 'account_balance_wallet' },
+  { key: 'keys', label: 'Keys', icon: 'key' },
+  { key: 'bags', label: 'Bags', icon: 'shopping_bag' },
+  { key: 'clothing', label: 'Clothing', icon: 'checkroom' },
+  { key: 'jewelry', label: 'Jewelry', icon: 'diamond' },
+  { key: 'electronics', label: 'Electronics', icon: 'headphones' },
+  { key: 'cards', label: 'Cards & ID', icon: 'credit_card' },
+  { key: 'documents', label: 'Documents', icon: 'description' },
+  { key: 'other', label: 'Other', icon: 'category' },
+] as const;
+
+export const PHOTO_MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+export const PHOTO_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
+export const PHOTO_MAX_COUNT = 5;

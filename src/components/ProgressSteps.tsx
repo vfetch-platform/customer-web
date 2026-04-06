@@ -8,36 +8,48 @@ interface ProgressStepsProps {
 
 export function ProgressSteps({ current, steps }: ProgressStepsProps) {
   return (
-    <ol className="flex items-center w-full mb-8" aria-label="Progress">
+    <ol className="flex items-start justify-center w-full mb-10" aria-label="Progress">
       {steps.map((step, idx) => {
         const stepNumber = idx + 1;
         const isComplete = stepNumber < current;
         const isActive = stepNumber === current;
         return (
-          <li key={step.title} className="flex-1 flex items-center">
-            <div className="flex items-center w-full">
-              <div className={`relative flex items-center justify-center h-10 w-10 rounded-full text-sm font-bold transition-colors duration-200 ring-4 ring-surface-container-lowest
-                ${isComplete ? 'bg-tertiary-fixed text-on-tertiary-fixed' : isActive ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-outline'}`}
-                aria-current={isActive ? 'step' : undefined}
-              >
-                {isComplete ? (
-                  <span className="material-symbols-outlined text-lg">check_circle</span>
-                ) : (
-                  <span className="font-headline">{stepNumber}</span>
+          <li key={step.title} className="flex items-start flex-1">
+            <div className="flex flex-col items-center w-full">
+              <div className="flex items-center w-full">
+                {/* Left connector line */}
+                {idx > 0 && (
+                  <div className={`flex-1 h-[2px] ${isComplete || isActive ? 'bg-primary' : 'bg-outline-variant/20'}`} />
                 )}
-              </div>
-              <div className="ml-4">
-                <p className={`text-sm font-headline font-bold ${isActive ? 'text-primary' : isComplete ? 'text-on-tertiary-fixed-variant' : 'text-outline'}`}>{step.title}</p>
-                {step.description && (
-                  <p className="text-xs text-on-secondary-container mt-0.5 hidden sm:block">{step.description}</p>
+                {idx === 0 && <div className="flex-1" />}
+
+                {/* Circle */}
+                <div
+                  className={`relative flex items-center justify-center h-10 w-10 rounded-full text-sm font-bold shrink-0 transition-colors duration-200
+                    ${isComplete ? 'bg-primary text-white' : isActive ? 'bg-primary text-white' : 'bg-surface-container-highest text-outline'}`}
+                  aria-current={isActive ? 'step' : undefined}
+                >
+                  {isComplete ? (
+                    <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  ) : (
+                    <span className="font-headline">{stepNumber}</span>
+                  )}
+                </div>
+
+                {/* Right connector line */}
+                {idx < steps.length - 1 && (
+                  <div className={`flex-1 h-[2px] ${isComplete ? 'bg-primary' : 'bg-outline-variant/20'}`} />
                 )}
+                {idx === steps.length - 1 && <div className="flex-1" />}
               </div>
+
+              {/* Label below circle */}
+              <p className={`mt-2 text-xs font-medium text-center ${
+                isActive ? 'text-primary font-semibold' : isComplete ? 'text-primary' : 'text-outline'
+              }`}>
+                {step.title}
+              </p>
             </div>
-            {idx < steps.length - 1 && (
-              <div className="flex-1 h-[2px] mx-4 relative">
-                <div className={`absolute inset-y-0 left-0 h-[2px] w-full transition-colors duration-200 ${isComplete ? 'bg-tertiary-fixed' : 'bg-outline-variant/20'}`} />
-              </div>
-            )}
           </li>
         );
       })}
