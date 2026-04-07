@@ -49,6 +49,8 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
   const [error, setError] = useState<string | null>(null);
   const [queryId, setQueryId] = useState<string | null>(null);
   const [claimId, setClaimId] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
 
   // Persist form data (excluding photos which are not serializable)
   useEffect(() => {
@@ -135,8 +137,14 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
   };
 
   const handleSubmit = async () => {
+    if (!termsAccepted) {
+      setTermsError('Please accept the Terms & Conditions before searching.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setTermsError(null);
     try {
       // Upload photos if any
       let photoUrls: string[] = [];
@@ -203,6 +211,8 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     setClaimId(null);
     setQueryId(null);
     setError(null);
+    setTermsAccepted(false);
+    setTermsError(null);
   };
 
   const handleEditStep = (step: number) => {
@@ -278,6 +288,14 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
           formData={formData}
           loading={loading}
           error={error}
+          termsAccepted={termsAccepted}
+          termsError={termsError}
+          onTermsAcceptedChange={(accepted) => {
+            setTermsAccepted(accepted);
+            if (termsError) {
+              setTermsError(null);
+            }
+          }}
           onSubmit={handleSubmit}
           onBack={() => { setWizardStep(2); }}
           onEditStep={handleEditStep}

@@ -1,18 +1,32 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { SearchFormData, ITEM_CATEGORIES } from '@/constants/search';
 
 interface Step3ReviewProps {
   formData: SearchFormData;
   loading: boolean;
   error: string | null;
+  termsAccepted: boolean;
+  termsError: string | null;
+  onTermsAcceptedChange: (accepted: boolean) => void;
   onSubmit: () => void;
   onBack: () => void;
   onEditStep: (step: number) => void;
 }
 
-export default function Step3Review({ formData, loading, error, onSubmit, onBack, onEditStep }: Step3ReviewProps) {
+export default function Step3Review({
+  formData,
+  loading,
+  error,
+  termsAccepted,
+  termsError,
+  onTermsAcceptedChange,
+  onSubmit,
+  onBack,
+  onEditStep,
+}: Step3ReviewProps) {
   const categoryLabel = ITEM_CATEGORIES.find((c) => c.key === formData.category)?.label || formData.category || 'Not specified';
 
   return (
@@ -125,6 +139,32 @@ export default function Step3Review({ formData, loading, error, onSubmit, onBack
         </div>
       )}
 
+      <section className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-outline-variant/10 space-y-3">
+        <div className="flex items-start gap-3">
+          <input
+            id="termsAccepted"
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(event) => onTermsAcceptedChange(event.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-outline-variant/40 text-primary focus:ring-primary"
+          />
+          <div className="space-y-1">
+            <label htmlFor="termsAccepted" className="block text-sm font-medium text-on-surface cursor-pointer">
+              I have read and accept the Terms &amp; Conditions before starting this search.
+            </label>
+            <Link
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex text-xs font-medium text-primary hover:underline"
+            >
+              Read Terms &amp; Conditions
+            </Link>
+          </div>
+        </div>
+        {termsError && <p className="text-sm text-error">{termsError}</p>}
+      </section>
+
       {/* Navigation */}
       <div className="flex items-center justify-between pt-4">
         <button type="button" onClick={onBack} className="flex items-center gap-2 text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">
@@ -132,8 +172,8 @@ export default function Step3Review({ formData, loading, error, onSubmit, onBack
           Back
         </button>
         <button
-          type="button" onClick={onSubmit} disabled={loading}
-          className="bg-primary text-white px-10 py-3.5 rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+          type="button" onClick={onSubmit} disabled={loading || !termsAccepted}
+          className="bg-primary text-white px-10 py-3.5 rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
