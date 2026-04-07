@@ -36,19 +36,16 @@ const STATUS_STEPS = [
 ];
 
 function getStatusStepIndex(claim: Claim): number {
-  if (claim.status === 'collected') return 3;
   if (claim.status === 'approved') return 2;
   if (claim.status === 'pending') return 1;
   return 0;
 }
 
 function getStatusTitle(claim: Claim): string {
-  if (claim.status === 'collected') return 'Item Collected';
   if (claim.status === 'approved' && claim.payment_status === 'completed') return 'Ready for Collection';
   if (claim.status === 'approved') return 'Item Found';
   if (claim.status === 'pending') return 'Verifying Your Claim';
   if (claim.status === 'rejected') return 'Claim Rejected';
-  if (claim.status === 'expired') return 'Claim Expired';
   return 'Claim Received';
 }
 
@@ -62,14 +59,8 @@ function getStatusSubtext(claim: Claim): string {
   if (claim.status === 'pending') {
     return `Our team is verifying your claim against the lost and found records. We'll notify you by email once verification is complete.`;
   }
-  if (claim.status === 'collected') {
-    return `Your item has been successfully collected. Thank you for using VFetch!`;
-  }
   if (claim.status === 'rejected') {
     return `Unfortunately, your claim was not approved. Please contact the venue directly if you believe this is an error.`;
-  }
-  if (claim.status === 'expired') {
-    return `This claim has expired. Please submit a new search if you are still looking for your item.`;
   }
   return `Your claim has been received and logged into our system.`;
 }
@@ -214,7 +205,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                         <p className={`text-[11px] font-medium leading-tight ${isActive || isComplete ? 'text-primary font-semibold' : 'text-outline'}`}>{s.label}</p>
                         {(isComplete || isActive) && (
                           <p className="text-[10px] text-on-secondary-container mt-0.5">
-                            {new Date(isActive ? claim.created_at : claim.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, {new Date(claim.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(isActive ? claim.created_at : claim.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}, {new Date(claim.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         )}
                         {!isComplete && !isActive && s.key === 'collection' && claim.status === 'approved' && (
@@ -304,8 +295,8 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                         <p className="font-headline font-bold text-sm text-primary">Date &amp; Time Lost</p>
                         <p className="text-xs text-on-secondary-container">
                           {claim.item?.date_found
-                            ? new Date(claim.item.date_found).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                            : new Date(claim.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            ? new Date(claim.item.date_found).toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' })
+                            : new Date(claim.created_at).toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' })}
                         </p>
                       </div>
                     </div>
@@ -331,7 +322,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             )}
 
             {/* Pickup Code */}
-            {(claim.status === 'approved' || claim.status === 'collected') && claim.payment_status === 'completed' && claim.collection_method === 'self_pickup' && claim.pickup_code && (
+            {claim.status === 'approved' && claim.payment_status === 'completed' && claim.collection_method === 'self_pickup' && claim.pickup_code && (
               <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
                 <h2 className="font-headline text-lg font-bold text-primary mb-4">Pickup Information</h2>
                 <div className="bg-tertiary-fixed/10 rounded-xl p-6">

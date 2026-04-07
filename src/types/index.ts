@@ -43,7 +43,7 @@ export interface Claim {
   id: string;
   item_id: string;
   user_id: string;
-  status: 'pending' | 'approved' | 'rejected' | 'collected' | 'expired';
+  status: 'pending' | 'approved' | 'rejected';
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
   pickup_code?: string;
   collection_method?: 'self_pickup' | 'parcel2go' | 'uber_courier' | 'uber_parcel';

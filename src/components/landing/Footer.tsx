@@ -67,7 +67,7 @@ export default function Footer({ venue }: FooterProps) {
         </p>
         <div className="flex items-center gap-4 text-xs text-on-secondary-container/50">
           <span className="material-symbols-outlined text-sm">language</span>
-          <span>English (US)</span>
+          <span>English (UK)</span>
         </div>
       </div>
     </footer>

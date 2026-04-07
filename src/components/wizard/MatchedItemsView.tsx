@@ -177,7 +177,7 @@ export default function MatchedItemsView({
                       )}
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[18px] text-surface-tint">calendar_today</span>
-                        <span>Found {new Date(item.date_found).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        <span>Found {new Date(item.date_found).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                     </div>
                     <button onClick={() => onClaimItem(item)} disabled={loading || !!claimId}
