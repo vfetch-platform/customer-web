@@ -35,22 +35,40 @@ export interface Item {
   model?: string;
   date_found: string;
   location_found?: string;
-  status: 'available' | 'claimed' | 'collected' | 'expired';
+  status: 'available' | 'reserved' | 'released' | 'expired' | 'claimed' | 'collected';
   created_at: string;
 }
+
+export type WorkflowState =
+  | 'pending_review'
+  | 'pending_cancelled'
+  | 'approved_awaiting_payment'
+  | 'approved_ready_for_pickup'
+  | 'approved_courier_arranged'
+  | 'approved_collected'
+  | 'approved_cancelled'
+  | 'approved_expired'
+  | 'rejected';
 
 export interface Claim {
   id: string;
   item_id: string;
   user_id: string;
+  claimant_id?: string;
   status: 'pending' | 'approved' | 'rejected';
-  payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
+  payment_status: 'not_required' | 'awaiting_payment' | 'paid' | 'refunded' | 'pending' | 'completed' | 'failed';
+  workflow_state?: WorkflowState;
   pickup_code?: string;
+  collection_mode?: 'self_pickup' | 'courier';
   collection_method?: 'self_pickup' | 'parcel2go' | 'uber_courier' | 'uber_parcel';
   delivery_address?: string;
   delivery_tracking?: string;
   notes?: string;
+  decided_at?: string;
+  paid_at?: string;
   collected_at?: string;
+  closed_at?: string;
+  closed_reason?: 'collected' | 'claimant_cancelled' | 'expired';
   expires_at: string;
   created_at: string;
   customer_name?: string;
