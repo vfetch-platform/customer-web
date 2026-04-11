@@ -1,3 +1,16 @@
+export interface DeliveryTrackingInfo {
+  provider_reference: string;
+  tracking_url?: string;
+  provider_status?: string;
+}
+
+export interface ClaimantSummary {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+}
+
 export interface Venue {
   id: string;
   name: string;
@@ -35,7 +48,7 @@ export interface Item {
   model?: string;
   date_found: string;
   location_found?: string;
-  status: 'available' | 'reserved' | 'released' | 'expired' | 'claimed' | 'collected';
+  status: 'available' | 'reserved' | 'released' | 'expired';
   created_at: string;
 }
 
@@ -53,27 +66,24 @@ export type WorkflowState =
 export interface Claim {
   id: string;
   item_id: string;
-  user_id: string;
   claimant_id?: string;
+  claimant?: ClaimantSummary;
   status: 'pending' | 'approved' | 'rejected';
-  payment_status: 'not_required' | 'awaiting_payment' | 'paid' | 'refunded' | 'pending' | 'completed' | 'failed';
+  payment_status: 'not_required' | 'awaiting_payment' | 'paid' | 'refunded';
   workflow_state?: WorkflowState;
   pickup_code?: string;
   collection_mode?: 'self_pickup' | 'courier';
-  collection_method?: 'self_pickup' | 'parcel2go' | 'uber_courier' | 'uber_parcel';
+  courier_provider?: 'parcel2go' | 'uber';
   delivery_address?: string;
-  delivery_tracking?: string;
+  delivery_tracking_info?: DeliveryTrackingInfo;
   notes?: string;
   decided_at?: string;
   paid_at?: string;
   collected_at?: string;
   closed_at?: string;
   closed_reason?: 'collected' | 'claimant_cancelled' | 'expired';
-  expires_at: string;
+  expires_at?: string;
   created_at: string;
-  customer_name?: string;
-  customer_email?: string;
-  customer_phone?: string;
   item?: Item;
 }
 

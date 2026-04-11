@@ -1,5 +1,4 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import CryptoJS from 'crypto-js';
 import { API_TIMEOUT_MS, API_MAX_RETRIES, API_RETRY_DELAY_MS, ERROR_MESSAGES } from '@/constants/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
@@ -143,13 +142,7 @@ export const customerApi = {
     category?: string;
     photoUrls?: string[];
   }) => {
-    // Generate SHA hash of email as per requirements
-    const emailHash = CryptoJS.SHA256(queryData.email).toString();
-
-    const response = await api.post('/queries', {
-      ...queryData,
-      emailHash,
-    });
+    const response = await api.post('/queries', queryData);
     return response.data;
   },
 
