@@ -42,7 +42,7 @@ function getStatusStepIndex(claim: Claim): number {
 }
 
 function getStatusTitle(claim: Claim): string {
-  if (claim.status === 'approved' && claim.payment_status === 'completed') return 'Ready for Collection';
+  if (claim.status === 'approved' && claim.payment_status === 'paid') return 'Ready for Collection';
   if (claim.status === 'approved') return 'Item Found';
   if (claim.status === 'pending') return 'Verifying Your Claim';
   if (claim.status === 'rejected') return 'Claim Rejected';
@@ -50,7 +50,7 @@ function getStatusTitle(claim: Claim): string {
 }
 
 function getStatusSubtext(claim: Claim): string {
-  if (claim.status === 'approved' && claim.payment_status === 'completed') {
+  if (claim.status === 'approved' && claim.payment_status === 'paid') {
     return `Your claim has been verified and payment received. Your item is ready for collection.`;
   }
   if (claim.status === 'approved') {
@@ -219,7 +219,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             </div>
 
             {/* Collection Methods */}
-            {claim.status === 'approved' && claim.payment_status !== 'completed' && (
+            {claim.status === 'approved' && claim.payment_status !== 'paid' && (
               <CollectionMethods
                 claim={claim}
                 venue={venue}
@@ -306,23 +306,31 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             )}
 
             {/* Delivery Tracking */}
-            {claim.collection_method && claim.collection_method !== 'self_pickup' && claim.delivery_tracking && (
+            {claim.delivery_tracking_info && (
               <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
                   <h2 className="font-headline text-lg font-bold text-primary">Delivery Tracking</h2>
                 </div>
                 <div className="bg-surface-container-low rounded-xl p-4">
-                  <p className="font-headline font-bold text-primary">Tracking: {claim.delivery_tracking}</p>
+                  <p className="font-headline font-bold text-primary">Tracking: {claim.delivery_tracking_info.provider_reference}</p>
+                  {claim.delivery_tracking_info.tracking_url && (
+                    <a href={claim.delivery_tracking_info.tracking_url} target="_blank" rel="noopener noreferrer"
+                      className="text-surface-tint text-sm hover:underline mt-1 inline-block">
+                      Track your parcel →
+                    </a>
+                  )}
                   <p className="text-on-secondary-container text-sm mt-1">
-                    Method: {claim.collection_method.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                    Provider: {claim.courier_provider
+                      ? claim.courier_provider.replace(/\b\w/g, (l: string) => l.toUpperCase())
+                      : claim.collection_mode?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </p>
                 </div>
               </div>
             )}
 
             {/* Pickup Code */}
-            {claim.status === 'approved' && claim.payment_status === 'completed' && claim.collection_method === 'self_pickup' && claim.pickup_code && (
+            {claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
               <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
                 <h2 className="font-headline text-lg font-bold text-primary mb-4">Pickup Information</h2>
                 <div className="bg-tertiary-fixed/10 rounded-xl p-6">
