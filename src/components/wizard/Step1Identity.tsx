@@ -10,9 +10,11 @@ interface Step1IdentityProps {
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onNext: () => void;
   onCancel: () => void;
+  emailVerified: boolean;
+  otpSending: boolean;
 }
 
-export default function Step1Identity({ formData, fieldErrors, onInputChange, onNext, onCancel }: Step1IdentityProps) {
+export default function Step1Identity({ formData, fieldErrors, onInputChange, onNext, onCancel, emailVerified, otpSending }: Step1IdentityProps) {
   return (
     <div className="space-y-8">
       {/* Personal Details Card */}
@@ -37,13 +39,22 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-sm font-medium text-on-surface">Email Address</label>
-            <input
-              id="email" name="email" type="email" value={formData.email} onChange={onInputChange}
-              className={`bg-surface-container-low rounded-xl px-4 py-3.5 text-on-surface placeholder:text-outline/40 border transition-colors ${
-                fieldErrors.email ? 'border-error' : 'border-outline-variant/20 focus:border-primary'
-              }`}
-              placeholder="julian@vfetch.com"
-            />
+            <div className="relative">
+              <input
+                id="email" name="email" type="email" value={formData.email} onChange={onInputChange}
+                readOnly={emailVerified}
+                className={`w-full bg-surface-container-low rounded-xl px-4 py-3.5 text-on-surface placeholder:text-outline/40 border transition-colors ${
+                  emailVerified ? 'border-green-500 bg-green-50 pr-28' : fieldErrors.email ? 'border-error' : 'border-outline-variant/20 focus:border-primary'
+                }`}
+                placeholder="julian@vfetch.com"
+              />
+              {emailVerified && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-green-600 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  Verified
+                </span>
+              )}
+            </div>
             {fieldErrors.email && <p className="text-xs text-error">{fieldErrors.email}</p>}
           </div>
 
@@ -128,10 +139,25 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
           Cancel
         </button>
         <button
-          type="button" onClick={onNext}
-          className="bg-primary text-white px-10 py-3.5 rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all"
+          type="button" onClick={onNext} disabled={otpSending}
+          className="bg-primary text-white px-10 py-3.5 rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          Next Step
+          {otpSending ? (
+            <>
+              <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              Sending…
+            </>
+          ) : emailVerified ? (
+            <>
+              <span className="material-symbols-outlined text-base">check_circle</span>
+              Continue
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined text-base">shield</span>
+              Verify &amp; Continue
+            </>
+          )}
         </button>
       </div>
 
