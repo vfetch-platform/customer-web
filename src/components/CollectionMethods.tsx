@@ -165,11 +165,6 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
               </div>
               <h3 className="font-headline text-lg font-bold text-primary mb-2">Self Pickup</h3>
               <p className="text-on-secondary-container text-sm mb-5 flex-grow">Collect from the venue directly during opening hours.</p>
-              <div className="bg-surface-container-low rounded-xl p-4 mb-5">
-                <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-1">Venue Address</p>
-                <p className="font-headline font-bold text-sm text-primary">{venue.address?.split(',')[0] || venue.name}</p>
-                <p className="text-xs text-on-secondary-container">{venue.address?.split(',').slice(1).join(',').trim() || ''}</p>
-              </div>
               <button onClick={() => handleMethodSelect('self_pickup')}
                 className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
                 Self Pickup
@@ -259,8 +254,6 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
           </button>
 
           <div className="space-y-5">
-            <VenueLocationCard venue={venue} />
-
             {/* Instructions + payment card */}
             <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
               <h3 className="font-headline text-xl font-bold text-primary mb-4">Self Pickup Instructions</h3>

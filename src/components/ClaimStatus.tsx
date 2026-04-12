@@ -231,8 +231,8 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             )}
 
             {/* Item Details + Pickup Code row */}
-            {!isCollectionFlowActive && (
-              <div className={`grid gap-6 ${claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+            {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
+              <div className="grid gap-6 md:grid-cols-2">
                 {/* Item title */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10">
                   {claim.item && (
@@ -289,7 +289,10 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
 
             {/* Venue location (map + hours) — only for self_pickup paid */}
             {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
-              <VenueLocationCard venue={venue} />
+              <>
+                <VenueLocationCard venue={venue} />
+                <VenueReviewPrompt venue={venue} />
+              </>
             )}
 
             {/* Delivery Tracking */}

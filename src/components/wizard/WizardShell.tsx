@@ -269,9 +269,9 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     setError(null);
     setTermsAccepted(false);
     setTermsError(null);
-    setEmailVerified(false);
     setOtpModalOpen(false);
     setOtpError(null);
+    // emailVerified intentionally kept — email hasn't changed, no need to re-verify
   };
 
   const handleEditStep = (step: number) => {
