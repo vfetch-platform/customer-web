@@ -230,42 +230,47 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               />
             )}
 
-            {/* Pickup Code */}
+            {/* Pickup code + venue map */}
             {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
-              <div className="bg-gradient-to-br from-primary/5 via-white to-tertiary-fixed/10 rounded-2xl shadow-sm border border-primary/10 overflow-hidden">
-                <div className="flex items-start justify-between gap-4 px-5 py-5">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-on-secondary-container/60">Pickup Code</p>
-                    <div className="mt-2 inline-flex items-center rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-primary/10">
-                      <p className="font-headline text-3xl font-bold text-primary tracking-[0.28em] pl-1">{claim.pickup_code}</p>
+              <div className="space-y-6">
+                <VenueReviewPrompt venue={venue} />
+
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] items-stretch">
+                  <div className="h-full bg-gradient-to-br from-primary/5 via-white to-tertiary-fixed/10 rounded-2xl shadow-sm border border-primary/10 overflow-hidden flex flex-col">
+                    <div className="flex items-start justify-between gap-4 px-5 py-5">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-on-secondary-container/60">Pickup Code</p>
+                        <div className="mt-2 inline-flex items-center rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-primary/10">
+                          <p className="font-headline text-3xl font-bold text-primary tracking-[0.28em] pl-1">{claim.pickup_code}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(claim.pickup_code!, 'pickup')}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-xs font-bold text-surface-tint shadow-sm ring-1 ring-outline-variant/10 hover:bg-surface-container-low transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">content_copy</span>
+                        {copiedField === 'pickup' ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <div className="mt-auto border-t border-primary/10 bg-primary/5 px-5 py-4">
+                      <div className="flex items-start gap-2.5">
+                        <span className="material-symbols-outlined text-primary text-base mt-0.5">info</span>
+                        <p className="text-sm font-medium text-primary leading-relaxed">
+                          Present this code and a valid photo ID at the venue during collection hours.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => copyToClipboard(claim.pickup_code!, 'pickup')}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-xs font-bold text-surface-tint shadow-sm ring-1 ring-outline-variant/10 hover:bg-surface-container-low transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">content_copy</span>
-                    {copiedField === 'pickup' ? 'Copied!' : 'Copy'}
-                  </button>
+
+                  <VenueLocationCard venue={venue} showHours={false} />
                 </div>
-                <div className="border-t border-primary/10 bg-primary/5 px-5 py-4">
-                  <div className="flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-primary text-base mt-0.5">info</span>
-                    <p className="text-sm font-medium text-primary leading-relaxed">
-                      Present this code and a valid photo ID at the venue during collection hours.
-                    </p>
-                  </div>
-                </div>
+
+                <VenueLocationCard venue={venue} showMap={false} />
               </div>
             )}
 
-            {/* Venue location (map + hours) — only for self_pickup paid */}
-            {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
-              <VenueLocationCard venue={venue} />
-            )}
-
             {/* Review prompt — when item is ready for collection */}
-            {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && (
+            {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && !(claim.collection_mode === 'self_pickup' && claim.pickup_code) && (
               <VenueReviewPrompt venue={venue} />
             )}
 

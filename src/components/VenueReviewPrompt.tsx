@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState } from 'react';
 import { Venue } from '@/types';
 
 interface VenueReviewPromptProps {
@@ -19,41 +18,39 @@ function getReviewUrl(venue: Venue): string {
 }
 
 export default function VenueReviewPrompt({ venue }: VenueReviewPromptProps) {
-  const [dismissed, setDismissed] = useState(false);
-
-  if (dismissed) return null;
-
   const reviewUrl = getReviewUrl(venue);
 
   return (
-    <div className="bg-surface-container-lowest rounded-[2rem] editorial-shadow p-8 md:p-12">
-      <div className="flex flex-col items-center text-center">
-        <div className="w-16 h-16 bg-tertiary-fixed/20 rounded-full flex items-center justify-center mb-4">
-          <span className="material-symbols-outlined text-4xl text-on-tertiary-fixed" style={{ fontVariationSettings: "'FILL' 1" }}>
-            star
-          </span>
+    <div className="overflow-hidden rounded-2xl border border-green-100 bg-gradient-to-br from-white via-white to-green-50/70 shadow-sm">
+      <div className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-7">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-50 ring-1 ring-green-100">
+            <span className="material-symbols-outlined text-[24px] text-green-600" style={{ fontVariationSettings: "'FILL' 1" }}>
+              star
+            </span>
+          </div>
+
+          <div className="max-w-2xl">
+            <p className="font-headline text-lg font-bold text-primary md:text-xl">
+              If this has felt seamless so far, a quick review would mean a lot.
+            </p>
+            <p className="mt-1.5 text-sm italic leading-relaxed text-on-secondary-container md:text-[15px]">
+              A quick Google review for <span className="font-semibold text-primary">{venue.name}</span> builds trust and recognises the team for making this process feel easy. It takes less than a minute.
+            </p>
+          </div>
         </div>
-        <h3 className="font-headline text-xl font-bold text-primary">
-          Glad you got your item back!
-        </h3>
-        <p className="text-on-secondary-container text-sm mt-2 max-w-md">
-          Help others find <span className="font-bold">{venue.name}</span> by leaving a quick review. It only takes a moment and means a lot to the venue.
-        </p>
-        <a
-          href={reviewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-6 inline-flex items-center gap-2 hero-gradient text-white font-headline font-bold py-3 px-8 rounded-full hover:opacity-90 transition-opacity active:scale-95"
-        >
-          <span className="material-symbols-outlined text-xl">rate_review</span>
-          Leave a Google Review
-        </a>
-        <button
-          onClick={() => setDismissed(true)}
-          className="mt-3 text-xs text-on-surface-variant hover:text-on-secondary-container transition-colors"
-        >
-          Maybe later
-        </button>
+
+        <div className="md:shrink-0">
+          <a
+            href={reviewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full hero-gradient px-6 py-3 text-sm font-bold text-white shadow-sm hover:opacity-95 transition-opacity active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[18px]">rate_review</span>
+            Leave a Google Review
+          </a>
+        </div>
       </div>
     </div>
   );
