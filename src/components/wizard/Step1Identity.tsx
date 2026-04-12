@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SearchFormData } from '@/constants/search';
 import { PHONE_CODES } from '@/constants/countries';
+import { EMAIL_REGEX } from '@/constants/regex';
 
 interface Step1IdentityProps {
   formData: SearchFormData;
@@ -10,9 +11,49 @@ interface Step1IdentityProps {
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onNext: () => void;
   onCancel: () => void;
+  emailVerified: boolean;
+  otpSending: boolean;
+  otpSent: boolean;
+  otpVerifying: boolean;
+  otpError: string | null;
+  onSendOTP: () => void;
+  onVerifyOTP: (code: string) => void;
 }
 
-export default function Step1Identity({ formData, fieldErrors, onInputChange, onNext, onCancel }: Step1IdentityProps) {
+export default function Step1Identity({ formData, fieldErrors, onInputChange, onNext, onCancel, emailVerified, otpSending, otpSent, otpVerifying, otpError, onSendOTP, onVerifyOTP }: Step1IdentityProps) {
+  const [otpCode, setOtpCode] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const prevOtpSentRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCountdown = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setResendCountdown(60);
+    intervalRef.current = setInterval(() => setResendCountdown((c) => (c > 0 ? c - 1 : 0)), 1000);
+  };
+
+  // Cleanup interval on unmount
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  // Start countdown when otpSent flips from false → true
+  useEffect(() => {
+    if (otpSent && !prevOtpSentRef.current) {
+      prevOtpSentRef.current = true;
+      startCountdown();
+    }
+    if (!otpSent) {
+      prevOtpSentRef.current = false;
+    }
+  }, [otpSent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleResend = () => {
+    setOtpCode('');
+    startCountdown();
+    onSendOTP();
+  };
+
+  const emailIsValid = EMAIL_REGEX.test(formData.email.trim());
+
   return (
     <div className="space-y-8">
       {/* Personal Details Card */}
@@ -37,14 +78,87 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-sm font-medium text-on-surface">Email Address</label>
-            <input
-              id="email" name="email" type="email" value={formData.email} onChange={onInputChange}
-              className={`bg-surface-container-low rounded-xl px-4 py-3.5 text-on-surface placeholder:text-outline/40 border transition-colors ${
-                fieldErrors.email ? 'border-error' : 'border-outline-variant/20 focus:border-primary'
-              }`}
-              placeholder="julian@vfetch.com"
-            />
+            <div className="relative">
+              <input
+                id="email" name="email" type="email" value={formData.email} onChange={onInputChange}
+                readOnly={emailVerified}
+                className={`w-full bg-surface-container-low rounded-xl px-4 py-3.5 text-on-surface placeholder:text-outline/40 border transition-colors ${
+                  emailVerified ? 'border-green-500 bg-green-50 pr-28' : fieldErrors.email ? 'border-error' : 'border-outline-variant/20 focus:border-primary'
+                }`}
+                placeholder="julian@vfetch.com"
+              />
+              {emailVerified && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-green-600 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  Verified
+                </span>
+              )}
+            </div>
             {fieldErrors.email && <p className="text-xs text-error">{fieldErrors.email}</p>}
+
+            {/* Send Code button */}
+            {!emailVerified && emailIsValid && !otpSent && (
+              <button
+                type="button"
+                onClick={onSendOTP}
+                disabled={otpSending}
+                className={`self-start mt-1 text-sm font-medium text-primary border border-primary rounded-lg px-4 py-2 transition-colors hover:bg-primary/5 ${otpSending ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {otpSending ? (
+                  <span className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                    Sending…
+                  </span>
+                ) : 'Send Code'}
+              </button>
+            )}
+
+            {/* OTP input section */}
+            {otpSent && !emailVerified && (
+              <div className="mt-2 flex flex-col gap-2 p-4 bg-surface-container rounded-xl border border-outline-variant/20">
+                <label className="text-sm font-medium text-on-surface">Enter the 6-digit code sent to your email</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    pattern="\d{6}"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="flex-1 bg-surface-container-low rounded-xl px-4 py-3 text-on-surface border border-outline-variant/20 focus:border-primary transition-colors text-center tracking-[0.5em] font-mono text-lg"
+                    placeholder="······"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onVerifyOTP(otpCode)}
+                    disabled={otpCode.length !== 6 || otpVerifying}
+                    className={`px-5 py-3 rounded-xl bg-primary text-white text-sm font-semibold transition-colors ${otpCode.length !== 6 || otpVerifying ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/90'}`}
+                  >
+                    {otpVerifying ? (
+                      <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                        Verifying
+                      </span>
+                    ) : 'Verify'}
+                  </button>
+                </div>
+                {otpError && <p className="text-xs text-error">{otpError}</p>}
+                <div className="text-xs text-outline">
+                  {resendCountdown > 0 ? (
+                    <span>Resend in {resendCountdown}s</span>
+                  ) : (
+                    <button type="button" onClick={handleResend} className="text-primary font-medium hover:underline">
+                      Resend Code
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Success message */}
+            {emailVerified && (
+              <p className="text-xs text-green-600">Email verified successfully</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5 md:col-span-2">

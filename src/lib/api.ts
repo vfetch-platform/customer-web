@@ -240,6 +240,18 @@ export const customerApi = {
     return response.data;
   },
 
+  // Send email OTP for verification
+  sendOTP: async (email: string) => {
+    const response = await api.post('/verify/send-otp', { email });
+    return response.data;
+  },
+
+  // Verify email OTP
+  verifyOTP: async (email: string, otp: string) => {
+    const response = await api.post('/verify/confirm-otp', { email, otp });
+    return response.data;
+  },
+
   // Get active venues (for demo)
   getVenues: async () => {
     const response = await api.get('/venues?limit=100');
