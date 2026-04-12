@@ -52,17 +52,6 @@ export interface Item {
   created_at: string;
 }
 
-export type WorkflowState =
-  | 'pending_review'
-  | 'pending_cancelled'
-  | 'approved_awaiting_payment'
-  | 'approved_ready_for_pickup'
-  | 'approved_courier_arranged'
-  | 'approved_collected'
-  | 'approved_cancelled'
-  | 'approved_expired'
-  | 'rejected';
-
 export interface Claim {
   id: string;
   item_id: string;
@@ -70,7 +59,6 @@ export interface Claim {
   claimant?: ClaimantSummary;
   status: 'pending' | 'approved' | 'rejected';
   payment_status: 'not_required' | 'awaiting_payment' | 'paid' | 'refunded';
-  workflow_state?: WorkflowState;
   pickup_code?: string;
   collection_mode?: 'self_pickup' | 'courier';
   courier_provider?: 'parcel2go' | 'uber';
