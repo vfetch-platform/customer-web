@@ -9,6 +9,7 @@ import CourierPayment from './CourierPayment';
 import SelfPickupPayment from './SelfPickupPayment';
 import { PLATFORM_FEE, MAX_ITEM_VALUE } from '@/constants/fees';
 import { UK_POSTCODE_REGEX } from '@/constants/regex';
+import VenueLocationCard from './VenueLocationCard';
 
 interface BookingResult {
   booking_id: string;
@@ -256,32 +257,38 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
             className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-medium gap-1 mb-6">
             <span className="material-symbols-outlined text-lg">arrow_back</span> Back to collection methods
           </button>
-          <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
-            <h3 className="font-headline text-xl font-bold text-primary mb-4">Self Pickup Instructions</h3>
-            <div className="space-y-3 text-on-secondary-container text-sm mb-6">
-              <p>1. Complete the platform fee payment below</p>
-              <p>2. Your pickup code and venue details will appear after payment</p>
-              <p>3. Visit the venue during collection hours with your pickup code</p>
-              <p>4. Bring valid photo ID matching your claim details</p>
-              <p>5. Venue staff will verify and release your item</p>
-            </div>
-            <div className="p-4 bg-tertiary-fixed/10 rounded-xl mb-6">
-              <p className="text-sm text-on-tertiary-fixed-variant">
-                <strong>Note:</strong> Your pickup code, venue details, and collection hours will be provided after payment is confirmed.
-              </p>
-            </div>
-            {!showSelfPickupPayment && (
-              <button onClick={handleSelfPickup} disabled={loading}
-                className="w-full py-3.5 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50">
-                Proceed to Payment
-              </button>
-            )}
-            {showSelfPickupPayment && (
-              <div className="mt-6">
-                <h4 className="font-headline font-bold text-primary mb-3">Complete Payment</h4>
-                <SelfPickupPayment claimId={claim.id} onPaymentSuccess={handleSelfPickupPaymentSuccess} onCancel={handleSelfPickupPaymentCancel} />
+
+          <div className="space-y-5">
+            <VenueLocationCard venue={venue} />
+
+            {/* Instructions + payment card */}
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+              <h3 className="font-headline text-xl font-bold text-primary mb-4">Self Pickup Instructions</h3>
+              <div className="space-y-3 text-on-secondary-container text-sm mb-6">
+                <p>1. Complete the platform fee payment below</p>
+                <p>2. Your pickup code and venue details will appear after payment</p>
+                <p>3. Visit the venue during collection hours with your pickup code</p>
+                <p>4. Bring valid photo ID matching your claim details</p>
+                <p>5. Venue staff will verify and release your item</p>
               </div>
-            )}
+              <div className="p-4 bg-tertiary-fixed/10 rounded-xl mb-6">
+                <p className="text-sm text-on-tertiary-fixed-variant">
+                  <strong>Note:</strong> Your pickup code, venue details, and collection hours will be provided after payment is confirmed.
+                </p>
+              </div>
+              {!showSelfPickupPayment && (
+                <button onClick={handleSelfPickup} disabled={loading}
+                  className="w-full py-3.5 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50">
+                  Proceed to Payment
+                </button>
+              )}
+              {showSelfPickupPayment && (
+                <div className="mt-6">
+                  <h4 className="font-headline font-bold text-primary mb-3">Complete Payment</h4>
+                  <SelfPickupPayment claimId={claim.id} onPaymentSuccess={handleSelfPickupPaymentSuccess} onCancel={handleSelfPickupPaymentCancel} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

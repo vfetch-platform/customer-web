@@ -5,6 +5,7 @@ import { customerApi } from '@/lib/api';
 import { Venue, Claim } from '@/types';
 import CollectionMethods from './CollectionMethods';
 import VenueReviewPrompt from './VenueReviewPrompt';
+import VenueLocationCard from './VenueLocationCard';
 import { ClaimStep, CLIPBOARD_FEEDBACK_MS } from '@/constants/claimSteps';
 import { STORAGE_KEY_CLAIM_ID, STORAGE_KEY_CLAIM_RESULT } from '@/constants/storage';
 
@@ -229,80 +230,66 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               />
             )}
 
-            {/* Item Details + Timeline Grid */}
+            {/* Item Details + Pickup Code row */}
             {!isCollectionFlowActive && (
-              <div className="grid md:grid-cols-3 gap-6">
-                {/* Item Details */}
-                <div className="md:col-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
-                  <h2 className="font-headline text-xl font-bold text-primary mb-5">Item Details</h2>
+              <div className={`grid gap-6 ${claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* Item title */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10">
                   {claim.item && (
-                    <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex items-start gap-5">
                       {claim.item.images && claim.item.images.length > 0 && (
-                        <div className="md:w-56 shrink-0">
+                        <div className="w-16 h-16 shrink-0">
                           <img src={claim.item.images[0]} alt={claim.item.title}
-                            className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                            className="w-full h-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
                             onClick={() => setLightboxImage(claim.item!.images[0])} />
                         </div>
                       )}
-                      <div className="flex-1">
-                        <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Category</p>
-                        <p className="font-headline font-bold text-lg text-primary mb-3 capitalize">{claim.item.category || 'Personal Accessory'}</p>
-
-                        <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Description</p>
-                        <p className="text-sm text-on-secondary-container leading-relaxed mb-4">{claim.item.description}</p>
-
-                        <div className="flex flex-wrap gap-2">
-                          {((claim.item as any).match_score || (claim.item as any).similarity_score) && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-primary/20 text-xs font-medium text-primary">
-                              Matched: {Math.round((claim.item as any).match_score || (claim.item as any).similarity_score)}%
-                            </span>
-                          )}
-                          {claim.item.location_found && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
-                              Location: {claim.item.location_found}
-                            </span>
-                          )}
-                          {claim.item.color && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container capitalize">
-                              {claim.item.color}
-                            </span>
-                          )}
-                          {claim.item.brand && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
-                              {claim.item.brand}
-                            </span>
-                          )}
-                        </div>
+                      <div className="min-w-0">
+                        <h2 className="font-headline text-xl font-bold text-primary leading-snug">{claim.item.title}</h2>
+                        {claim.item.description && (
+                          <p className="mt-1.5 text-sm leading-relaxed text-on-secondary-container line-clamp-2">
+                            {claim.item.description}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Original Report Summary */}
-                <div className="bg-surface-container-low rounded-2xl p-6 shadow-sm border border-outline-variant/10">
-                  <h2 className="font-headline text-lg font-bold text-primary mb-5">Original Report Summary</h2>
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-4 bg-surface-container rounded-xl p-4">
-                      <span className="material-symbols-outlined text-primary text-xl mt-0.5">location_on</span>
+                {/* Pickup code — sits beside item title when present */}
+                {claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
+                  <div className="bg-gradient-to-br from-primary/5 via-white to-tertiary-fixed/10 rounded-2xl shadow-sm border border-primary/10 overflow-hidden">
+                    <div className="flex items-start justify-between gap-4 px-5 py-5">
                       <div>
-                        <p className="font-headline font-bold text-sm text-primary">Lost at {venue.name}</p>
-                        <p className="text-xs text-on-secondary-container">{claim.item?.location_found || venue.address || 'Location details available on record'}</p>
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-on-secondary-container/60">Pickup Code</p>
+                        <div className="mt-2 inline-flex items-center rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-primary/10">
+                          <p className="font-headline text-3xl font-bold text-primary tracking-[0.28em] pl-1">{claim.pickup_code}</p>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => copyToClipboard(claim.pickup_code!, 'pickup')}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-xs font-bold text-surface-tint shadow-sm ring-1 ring-outline-variant/10 hover:bg-surface-container-low transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">content_copy</span>
+                        {copiedField === 'pickup' ? 'Copied!' : 'Copy'}
+                      </button>
                     </div>
-                    <div className="flex items-start gap-4 bg-surface-container rounded-xl p-4">
-                      <span className="material-symbols-outlined text-primary text-xl mt-0.5">calendar_today</span>
-                      <div>
-                        <p className="font-headline font-bold text-sm text-primary">Date &amp; Time Lost</p>
-                        <p className="text-xs text-on-secondary-container">
-                          {claim.item?.date_found
-                            ? new Date(claim.item.date_found).toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' })
-                            : new Date(claim.created_at).toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    <div className="border-t border-primary/10 bg-primary/5 px-5 py-4">
+                      <div className="flex items-start gap-2.5">
+                        <span className="material-symbols-outlined text-primary text-base mt-0.5">info</span>
+                        <p className="text-sm font-medium text-primary leading-relaxed">
+                          Present this code and a valid photo ID at the venue during collection hours.
                         </p>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
+            )}
+
+            {/* Venue location (map + hours) — only for self_pickup paid */}
+            {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
+              <VenueLocationCard venue={venue} />
             )}
 
             {/* Delivery Tracking */}
@@ -325,19 +312,6 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                       ? claim.courier_provider.replace(/\b\w/g, (l: string) => l.toUpperCase())
                       : claim.collection_mode?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </p>
-                </div>
-              </div>
-            )}
-
-            {/* Pickup Code */}
-            {claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
-              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
-                <h2 className="font-headline text-lg font-bold text-primary mb-4">Pickup Information</h2>
-                <div className="bg-tertiary-fixed/10 rounded-xl p-6">
-                  <p className="font-headline text-lg font-bold text-on-tertiary-fixed-variant">
-                    Your Pickup Code: <span className="text-2xl tracking-wider">{claim.pickup_code}</span>
-                  </p>
-                  <p className="text-on-tertiary-fixed-variant text-sm mt-2">Present this code at the venue during collection hours.</p>
                 </div>
               </div>
             )}
@@ -432,19 +406,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                     <p className="text-xs text-on-secondary-container mt-0.5">Present this code and a valid photo ID at the venue</p>
                   </div>
                 </div>
-                {venue.collection_hours && (
-                  <div className="mt-6 bg-surface-container-low rounded-xl p-4">
-                    <h5 className="font-headline font-bold text-primary mb-2 text-sm">Collection Hours</h5>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {Object.entries(venue.collection_hours).map(([day, hours]) => (
-                        <div key={day} className="flex justify-between">
-                          <span className="capitalize text-on-surface">{day}:</span>
-                          <span className="text-on-surface">{hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <VenueLocationCard venue={venue} />
               </div>
             )}
 
