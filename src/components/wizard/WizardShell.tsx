@@ -12,6 +12,7 @@ import Step1Identity from './Step1Identity';
 import Step2ItemDetails from './Step2ItemDetails';
 import Step3Review from './Step3Review';
 import MatchedItemsView from './MatchedItemsView';
+import OTPModal from './OTPModal';
 
 interface WizardShellProps {
   venue: Venue;
@@ -54,8 +55,8 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
 
   // Email OTP state
   const [emailVerified, setEmailVerified] = useState(false);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
 
@@ -86,7 +87,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     }
     if (name === 'email') {
       setEmailVerified(false);
-      setOtpSent(false);
+      setOtpModalOpen(false);
       setOtpError(null);
     }
   }, [fieldErrors]);
@@ -141,7 +142,19 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     setOtpError(null);
     try {
       await customerApi.sendOTP(formData.email.trim());
-      setOtpSent(true);
+      setOtpModalOpen(true);
+    } catch (err: unknown) {
+      setFieldErrors((prev) => ({ ...prev, email: getErrorMessage(err) }));
+    } finally {
+      setOtpSending(false);
+    }
+  }, [formData.email]);
+
+  const handleResendOTP = useCallback(async () => {
+    setOtpSending(true);
+    setOtpError(null);
+    try {
+      await customerApi.sendOTP(formData.email.trim());
     } catch (err: unknown) {
       setOtpError(getErrorMessage(err));
     } finally {
@@ -155,7 +168,8 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     try {
       await customerApi.verifyOTP(formData.email.trim(), code);
       setEmailVerified(true);
-      setOtpError(null);
+      setOtpModalOpen(false);
+      setWizardStep(2);
     } catch (err: unknown) {
       setOtpError(getErrorMessage(err));
     } finally {
@@ -165,11 +179,11 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
 
   const handleNextStep1 = () => {
     if (!validateStep1()) return;
-    if (!emailVerified) {
-      setFieldErrors((prev) => ({ ...prev, email: 'Please verify your email address first' }));
+    if (emailVerified) {
+      setWizardStep(2);
       return;
     }
-    setWizardStep(2);
+    handleSendOTP();
   };
 
   const handleNextStep2 = () => {
@@ -256,7 +270,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     setTermsAccepted(false);
     setTermsError(null);
     setEmailVerified(false);
-    setOtpSent(false);
+    setOtpModalOpen(false);
     setOtpError(null);
   };
 
@@ -314,11 +328,17 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
           onCancel={handleSearchAgain}
           emailVerified={emailVerified}
           otpSending={otpSending}
-          otpSent={otpSent}
+        />
+      )}
+      {otpModalOpen && (
+        <OTPModal
+          email={formData.email}
           otpVerifying={otpVerifying}
+          otpSending={otpSending}
           otpError={otpError}
-          onSendOTP={handleSendOTP}
-          onVerifyOTP={handleVerifyOTP}
+          onVerify={handleVerifyOTP}
+          onResend={handleResendOTP}
+          onClose={() => setOtpModalOpen(false)}
         />
       )}
       {wizardStep === 2 && (
