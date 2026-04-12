@@ -81,7 +81,7 @@ export interface Claim {
   paid_at?: string;
   collected_at?: string;
   closed_at?: string;
-  closed_reason?: 'collected' | 'claimant_cancelled' | 'expired';
+  closed_reason?: 'claimant_cancelled' | 'expired';
   expires_at?: string;
   created_at: string;
   item?: Item;
