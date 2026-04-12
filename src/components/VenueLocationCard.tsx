@@ -4,11 +4,13 @@ import { Venue } from '@/types';
 
 interface VenueLocationCardProps {
   venue: Venue;
+  showMap?: boolean;
+  showHours?: boolean;
 }
 
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-export default function VenueLocationCard({ venue }: VenueLocationCardProps) {
+export default function VenueLocationCard({ venue, showMap = true, showHours = true }: VenueLocationCardProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const mapSrc = venue.google_place_id && apiKey
@@ -26,37 +28,38 @@ export default function VenueLocationCard({ venue }: VenueLocationCardProps) {
   return (
     <div className="space-y-4">
       {/* Map + address card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
-      {/* Map embed — always rendered */}
-        <iframe
-          title="Venue location"
-          src={mapSrc}
-          className="w-full h-48 border-0"
-          allowFullScreen
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+      {showMap && (
+        <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+          <iframe
+            title="Venue location"
+            src={mapSrc}
+            className="w-full h-48 border-0"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
 
-        <div className="p-5 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 mt-0.5">
-            <span className="material-symbols-outlined text-primary text-lg">location_on</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">
-              Venue Address
-            </p>
-            <p className="font-headline font-bold text-primary leading-snug">
-              {venue.address?.split(',')[0] || venue.name}
-            </p>
-            <p className="text-xs text-on-secondary-container mt-0.5">
-              {venue.address?.split(',').slice(1).join(',').trim() || ''}
-            </p>
+          <div className="p-5 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="material-symbols-outlined text-primary text-lg">location_on</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">
+                Venue Address
+              </p>
+              <p className="font-headline font-bold text-primary leading-snug">
+                {venue.address?.split(',')[0] || venue.name}
+              </p>
+              <p className="text-xs text-on-secondary-container mt-0.5">
+                {venue.address?.split(',').slice(1).join(',').trim() || ''}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Collection hours */}
-      {orderedDays.length > 0 && (
+      {showHours && orderedDays.length > 0 && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-outline-variant/10">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-9 h-9 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
