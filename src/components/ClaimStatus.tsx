@@ -219,6 +219,35 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               </div>
             </div>
 
+            {/* Item card — compact thumbnail + title + description (all states except approved+paid+self_pickup, where it appears in the 2-col grid below) */}
+            {claim.item && !(claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup') && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10">
+                <div className="flex items-start gap-5">
+                  {claim.item.images && claim.item.images.length > 0 && (
+                    <div className="w-16 h-16 shrink-0">
+                      <img
+                        src={claim.item.images[0]}
+                        alt={claim.item.title}
+                        className="w-full h-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setLightboxImage(claim.item!.images[0])}
+                      />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-1">
+                      {claim.status === 'pending' ? 'Item Under Review' : 'Your Claimed Item'}
+                    </p>
+                    <h2 className="font-headline text-xl font-bold text-primary leading-snug">{claim.item.title}</h2>
+                    {claim.item.description && (
+                      <p className="mt-1.5 text-sm leading-relaxed text-on-secondary-container line-clamp-2">
+                        {claim.item.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Collection Methods */}
             {claim.status === 'approved' && claim.payment_status !== 'paid' && (
               <CollectionMethods
@@ -235,7 +264,35 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               <div className="space-y-6">
                 <VenueReviewPrompt venue={venue} />
 
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] items-stretch">
+                <div className="grid gap-6 md:grid-cols-2 items-stretch">
+                  {/* Item card */}
+                  {claim.item && (
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10">
+                      <div className="flex items-start gap-5">
+                        {claim.item.images && claim.item.images.length > 0 && (
+                          <div className="w-16 h-16 shrink-0">
+                            <img
+                              src={claim.item.images[0]}
+                              alt={claim.item.title}
+                              className="w-full h-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => setLightboxImage(claim.item!.images[0])}
+                            />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-1">Your Claimed Item</p>
+                          <h2 className="font-headline text-xl font-bold text-primary leading-snug">{claim.item.title}</h2>
+                          {claim.item.description && (
+                            <p className="mt-1.5 text-sm leading-relaxed text-on-secondary-container line-clamp-2">
+                              {claim.item.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pickup code */}
                   <div className="h-full bg-gradient-to-br from-primary/5 via-white to-tertiary-fixed/10 rounded-2xl shadow-sm border border-primary/10 overflow-hidden flex flex-col">
                     <div className="flex items-start justify-between gap-4 px-5 py-5">
                       <div>
@@ -261,10 +318,9 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                       </div>
                     </div>
                   </div>
-
-                  <VenueLocationCard venue={venue} showHours={false} />
                 </div>
 
+                <VenueLocationCard venue={venue} showHours={false} />
                 <VenueLocationCard venue={venue} showMap={false} />
               </div>
             )}
