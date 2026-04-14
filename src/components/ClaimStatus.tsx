@@ -219,8 +219,86 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               </div>
             </div>
 
-            {/* Item card — compact thumbnail + title + description (all states except approved+paid+self_pickup, where it appears in the 2-col grid below) */}
-            {claim.item && !(claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup') && (
+            {/* Pending/rejected: full item details + report summary 2-card grid */}
+            {(claim.status === 'pending' || claim.status === 'rejected') && claim.item && (
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* Item Details */}
+                <div className="md:col-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+                  <h2 className="font-headline text-xl font-bold text-primary mb-5">Item Details</h2>
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {claim.item.images && claim.item.images.length > 0 && (
+                      <div className="md:w-56 shrink-0">
+                        <img
+                          src={claim.item.images[0]}
+                          alt={claim.item.title}
+                          className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setLightboxImage(claim.item!.images[0])}
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      {claim.item.category && (
+                        <>
+                          <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Category</p>
+                          <p className="font-headline font-bold text-lg text-primary mb-3 capitalize">{claim.item.category}</p>
+                        </>
+                      )}
+                      {claim.item.description && (
+                        <>
+                          <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-0.5">Description</p>
+                          <p className="text-sm text-on-secondary-container leading-relaxed mb-4">{claim.item.description}</p>
+                        </>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {claim.item.location_found && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
+                            Location: {claim.item.location_found}
+                          </span>
+                        )}
+                        {claim.item.color && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container capitalize">
+                            {claim.item.color}
+                          </span>
+                        )}
+                        {claim.item.brand && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-outline-variant/20 text-xs font-medium text-on-secondary-container">
+                            {claim.item.brand}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Report Summary */}
+                <div className="bg-surface-container-low rounded-2xl p-6 shadow-sm border border-outline-variant/10">
+                  <h2 className="font-headline text-lg font-bold text-primary mb-5">Report Summary</h2>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-4 bg-surface-container rounded-xl p-4">
+                      <span className="material-symbols-outlined text-primary text-xl mt-0.5">location_on</span>
+                      <div>
+                        <p className="font-headline font-bold text-sm text-primary">{venue.name}</p>
+                        <p className="text-xs text-on-secondary-container">{venue.address}</p>
+                      </div>
+                    </div>
+                    {claim.item.date_found && (
+                      <div className="flex items-start gap-4 bg-surface-container rounded-xl p-4">
+                        <span className="material-symbols-outlined text-primary text-xl mt-0.5">calendar_today</span>
+                        <div>
+                          <p className="font-headline font-bold text-sm text-primary">Date Found</p>
+                          <p className="text-xs text-on-secondary-container">
+                            {new Date(claim.item.date_found).toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Approved (not yet paid, no collection flow) — compact item card */}
+            {claim.item && claim.status === 'approved' && claim.payment_status !== 'paid' && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-outline-variant/10">
                 <div className="flex items-start gap-5">
                   {claim.item.images && claim.item.images.length > 0 && (
@@ -234,9 +312,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-1">
-                      {claim.status === 'pending' ? 'Item Under Review' : 'Your Claimed Item'}
-                    </p>
+                    <p className="text-[10px] uppercase tracking-widest text-on-secondary-container/60 mb-1">Your Claimed Item</p>
                     <h2 className="font-headline text-xl font-bold text-primary leading-snug">{claim.item.title}</h2>
                     {claim.item.description && (
                       <p className="mt-1.5 text-sm leading-relaxed text-on-secondary-container line-clamp-2">
