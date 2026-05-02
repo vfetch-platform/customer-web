@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { OTP_RESEND_COOLDOWN_SECONDS, OTP_LENGTH, OTP_FOCUS_DELAY_MS, OTP_ERROR_FOCUS_DELAY_MS } from '@/constants/claimSteps';
 
 interface OTPModalProps {
   email: string;
@@ -13,8 +14,8 @@ interface OTPModalProps {
 }
 
 export default function OTPModal({ email, otpVerifying, otpSending, otpError, onVerify, onResend, onClose }: OTPModalProps) {
-  const [digits, setDigits] = useState(['', '', '', '', '', '']);
-  const [resendCountdown, setResendCountdown] = useState(60);
+  const [digits, setDigits] = useState(Array<string>(OTP_LENGTH).fill(''));
+  const [resendCountdown, setResendCountdown] = useState(OTP_RESEND_COOLDOWN_SECONDS);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasSubmitted = useRef(false);
@@ -29,7 +30,7 @@ export default function OTPModal({ email, otpVerifying, otpSending, otpError, on
 
   // Auto-focus first input on open
   useEffect(() => {
-    const t = setTimeout(() => inputRefs.current[0]?.focus(), 80);
+    const t = setTimeout(() => inputRefs.current[0]?.focus(), OTP_FOCUS_DELAY_MS);
     return () => clearTimeout(t);
   }, []);
 
@@ -37,8 +38,8 @@ export default function OTPModal({ email, otpVerifying, otpSending, otpError, on
   useEffect(() => {
     if (otpError) {
       hasSubmitted.current = false;
-      setDigits(['', '', '', '', '', '']);
-      setTimeout(() => inputRefs.current[0]?.focus(), 50);
+      setDigits(Array<string>(OTP_LENGTH).fill(''));
+      setTimeout(() => inputRefs.current[0]?.focus(), OTP_ERROR_FOCUS_DELAY_MS);
     }
   }, [otpError]);
 
@@ -54,7 +55,7 @@ export default function OTPModal({ email, otpVerifying, otpSending, otpError, on
     const newDigits = [...digits];
     newDigits[index] = digit;
     setDigits(newDigits);
-    if (digit && index < 5) {
+    if (digit && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
     trySubmit(newDigits);
@@ -71,32 +72,32 @@ export default function OTPModal({ email, otpVerifying, otpSending, otpError, on
       }
     } else if (e.key === 'ArrowLeft' && index > 0) {
       inputRefs.current[index - 1]?.focus();
-    } else if (e.key === 'ArrowRight' && index < 5) {
+    } else if (e.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length === 6) {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
+    if (pasted.length === OTP_LENGTH) {
       const newDigits = pasted.split('');
       setDigits(newDigits);
-      inputRefs.current[5]?.focus();
+      inputRefs.current[OTP_LENGTH - 1]?.focus();
       trySubmit(newDigits);
     }
   };
 
   const handleResend = () => {
     hasSubmitted.current = false;
-    setDigits(['', '', '', '', '', '']);
-    setResendCountdown(60);
+    setDigits(Array<string>(OTP_LENGTH).fill(''));
+    setResendCountdown(OTP_RESEND_COOLDOWN_SECONDS);
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() =>
       setResendCountdown((c) => (c > 0 ? c - 1 : 0)), 1000
     );
     onResend();
-    setTimeout(() => inputRefs.current[0]?.focus(), 50);
+    setTimeout(() => inputRefs.current[0]?.focus(), OTP_ERROR_FOCUS_DELAY_MS);
   };
 
   const isActive = !otpVerifying && !otpSending;

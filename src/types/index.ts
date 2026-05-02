@@ -50,6 +50,8 @@ export interface Item {
   location_found?: string;
   status: 'available' | 'reserved' | 'released' | 'expired';
   created_at: string;
+  match_score?: number;
+  similarity_score?: number;
 }
 
 export interface Claim {
@@ -91,9 +93,8 @@ export interface CourierQuote {
     classification?: string;
     insurance?: number;
     collection_date?: string;
-    distance_miles?: number;          // uber mock
-    estimated_duration?: number;      // minutes
-    [key: string]: any;
+    distance_miles?: number;
+    estimated_duration?: number;
   };
 }
 

@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import ErrorBanner from '@/components/ErrorBanner';
 import { Venue, Claim, CourierQuote } from '@/types';
 import CourierAddressForm, { AddressFormValues } from './CourierAddressForm';
 import CourierPayment from './CourierPayment';
 import SelfPickupPayment from './SelfPickupPayment';
-import { PLATFORM_FEE, MAX_ITEM_VALUE } from '@/constants/fees';
+import { PLATFORM_FEE, MAX_ITEM_VALUE, COURIER_STARTING_FROM } from '@/constants/fees';
+import { ADDRESS_FORM_SUBMIT_DELAY_MS } from '@/constants/api';
 import { UK_POSTCODE_REGEX } from '@/constants/regex';
-import VenueLocationCard from './VenueLocationCard';
 
 interface BookingResult {
   booking_id: string;
@@ -27,7 +28,7 @@ interface CollectionMethodsProps {
   onFlowChange?: (isInFlow: boolean) => void;
 }
 
-export default function CollectionMethods({ claim, venue, onCourierBooked, onSelfPickupConfirmed, onBack, onFlowChange }: CollectionMethodsProps) {
+export default function CollectionMethods({ claim, venue: _venue, onCourierBooked, onSelfPickupConfirmed, onBack, onFlowChange }: CollectionMethodsProps) {
   const [selectedMethod, setSelectedMethod] = useState<'self_pickup' | 'parcel2go' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [addressFormData, setAddressFormData] = useState<AddressFormValues | null>(null);
@@ -104,7 +105,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
       if (postcode) segments.push(postcode);
       setDeliveryAddress(segments.join(', '));
       setSubmittingAddress(false);
-    }, 300);
+    }, ADDRESS_FORM_SUBMIT_DELAY_MS);
   };
 
   const parsedItemValue = parseFloat(itemValue);
@@ -178,7 +179,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
               </div>
               <h3 className="font-headline text-lg font-bold text-primary mb-2">Direct Courier</h3>
               <p className="text-on-secondary-container text-sm mb-5 flex-grow">Secure tracked shipping with full insurance for long distances.</p>
-              <p className="font-headline text-2xl font-bold text-primary mb-1">&pound;8.99 <span className="text-sm font-normal text-on-secondary-container">Starting from</span></p>
+              <p className="font-headline text-2xl font-bold text-primary mb-1">&pound;{COURIER_STARTING_FROM.toFixed(2)} <span className="text-sm font-normal text-on-secondary-container">Starting from</span></p>
               <div className="space-y-2 mb-5 mt-3">
                 <div className="flex items-center gap-2 text-xs text-on-secondary-container">
                   <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
@@ -237,8 +238,8 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
                   <span className="font-medium">Coming Soon</span>
                 </div>
               </div>
-              <div className="min-h-[240px]">
-                <img src="/uber_car.avif" alt="Uber Courier" className="w-full h-full object-cover" />
+              <div className="relative min-h-[240px]">
+                <Image src="/uber_car.avif" alt="Uber Courier" fill className="object-cover" />
               </div>
             </div>
           </div>

@@ -2,6 +2,8 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
+import { DEMO_VENUE_ID } from '@/constants/api';
 import { useState, useEffect } from 'react';
 import { customerApi } from '@/lib/api';
 import Footer from '@/components/landing/Footer';
@@ -9,8 +11,7 @@ import Footer from '@/components/landing/Footer';
 export default function LandingPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const DEFAULT_VENUE_ID = '5e7ff881-3a93-4e22-b9b1-a9128e3c7f4b';
-  const [venueId, setVenueId] = useState(DEFAULT_VENUE_ID);
+  const [venueId, setVenueId] = useState(DEMO_VENUE_ID);
   const [loading, setLoading] = useState(true);
   const supportHref = `/support?from=${encodeURIComponent(pathname)}`;
 
@@ -21,11 +22,11 @@ export default function LandingPage() {
         const activeVenues = [...data].filter((v, i, self) =>
           i === self.findIndex((t) => t.id === v.id)
         );
-        const preferred = activeVenues.find((v) => v.id === DEFAULT_VENUE_ID);
+        const preferred = activeVenues.find((v) => v.id === DEMO_VENUE_ID);
         if (preferred) setVenueId(preferred.id);
         else if (activeVenues.length > 0) setVenueId(activeVenues[0].id);
       } catch {
-        setVenueId(DEFAULT_VENUE_ID);
+        setVenueId(DEMO_VENUE_ID);
       } finally {
         setLoading(false);
       }
@@ -47,7 +48,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-outline-variant/10">
         <div className="flex justify-between items-center px-6 md:px-12 py-4 max-w-7xl mx-auto">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
+            <Image src="/favicon-nobg.svg" alt="Vfetch" width={24} height={24} className="h-6 w-auto" />
             <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
           </Link>
           <Link href={supportHref} className="font-body text-sm font-medium text-on-secondary-container hover:text-primary transition-colors">
@@ -104,8 +105,8 @@ export default function LandingPage() {
           {/* Right: Image and floating cards */}
           <div className="relative hidden md:block">
             {/* Main hotel image */}
-            <div className="rounded-2xl overflow-hidden shadow-lg aspect-[4/5]">
-              <img src="/main.jpg" alt="Luxury hotel interior" className="w-full h-full object-cover" />
+            <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[4/5]">
+              <Image src="/main.jpg" alt="Luxury hotel interior" fill className="object-cover" />
             </div>
 
             {/* Floating card: Secure Transfer */}

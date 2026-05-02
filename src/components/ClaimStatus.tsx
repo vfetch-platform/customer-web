@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, Fragment, type FormEvent } from 'react';
+import Image from 'next/image';
 import { customerApi } from '@/lib/api';
 import { Venue, Claim } from '@/types';
 import CollectionMethods from './CollectionMethods';
@@ -91,7 +92,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
     setTimeout(() => setCopiedField(null), CLIPBOARD_FEEDBACK_MS);
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
     if (!claimId.trim()) { setError('Please enter a Claim ID.'); return; }
     setLoading(true);
@@ -101,11 +102,12 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
       setClaim(response.data);
       sessionStorage.setItem(STORAGE_KEY_CLAIM_RESULT, JSON.stringify(response.data));
       setStep('details');
-    } catch (err: any) {
-      const status = err.response?.status;
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number }; normalizedMessage?: string };
+      const status = e.response?.status;
       if (status === 400 || status === 422) setError('Invalid Claim ID format.');
       else if (status === 404) setError('Claim not found. Please check your ID.');
-      else setError(err.normalizedMessage || 'Something went wrong.');
+      else setError(e.normalizedMessage || 'Something went wrong.');
       setClaim(null);
     } finally { setLoading(false); }
   };
@@ -189,7 +191,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                   const isActive = i === currentIdx;
                   const highlightConnector = isComplete || isActive;
                   return (
-                    <React.Fragment key={s.key}>
+                    <Fragment key={s.key}>
                       {i > 0 && (
                         <div className={`flex-1 h-[2px] mt-5 mx-2 ${highlightConnector ? 'bg-primary' : 'bg-outline-variant/15'}`} />
                       )}
@@ -213,7 +215,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                           <p className="text-[10px] text-on-secondary-container mt-0.5">Estimated: Today</p>
                         )}
                       </div>
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </div>
@@ -227,11 +229,12 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                   <h2 className="font-headline text-xl font-bold text-primary mb-5">Item Details</h2>
                   <div className="flex flex-col md:flex-row gap-6">
                     {claim.item.images && claim.item.images.length > 0 && (
-                      <div className="md:w-56 shrink-0">
-                        <img
+                      <div className="relative md:w-56 h-48 shrink-0">
+                        <Image
                           src={claim.item.images[0]}
                           alt={claim.item.title}
-                          className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                          fill
+                          className="object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => setLightboxImage(claim.item!.images[0])}
                         />
                       </div>
@@ -489,7 +492,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             <button onClick={() => setLightboxImage(null)} className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg hover:bg-surface-container-low z-10">
               <span className="material-symbols-outlined text-2xl text-on-surface">close</span>
             </button>
-            <img src={lightboxImage} alt="Item" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
+            <Image src={lightboxImage} alt="Item" width={900} height={600} className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
           </div>
         </div>
       )}

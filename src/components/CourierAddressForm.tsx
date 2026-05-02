@@ -1,18 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { COUNTRIES } from '@/constants/countries';
 import { EMAIL_REGEX } from '@/constants/regex';
-
-// Ambient declaration fallback if @types/google.maps isn't installed
-// (Consider installing: npm i -D @types/google.maps)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-declare global {
-  // Only declare if not already present
-  // eslint-disable-next-line no-var
-  // @ts-ignore
-  var google: any | undefined; // minimal for runtime usage
-}
 
 interface CourierAddressFormProps {
   stepNumber?: number;
@@ -64,7 +54,7 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   const [placesReady, setPlacesReady] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
   const autoInputRef = useRef<HTMLInputElement | null>(null);
-  const autoCompleteRef = useRef<any>(null);
+  const autoCompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   // Load Google Places script if API key present
   useEffect(() => {
@@ -72,20 +62,16 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
     const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!key) {
       setPlacesError('Google Maps API key not configured');
-      if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
-        console.warn('[CourierAddressForm] Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY');
-      }
       return;
     }
-    if ((window as any).google?.maps?.places) {
+    if (typeof google !== 'undefined' && google.maps?.places) {
       setPlacesReady(true);
       return;
     }
     const existing = document.querySelector<HTMLScriptElement>('script[data-google-places]');
     if (existing) {
       // Script tag exists — check if it already finished loading (e.g. React StrictMode remount)
-      if ((window as any).google?.maps?.places) {
+      if (typeof google !== 'undefined' && google.maps?.places) {
         setPlacesReady(true);
       } else {
         existing.addEventListener('load', () => setPlacesReady(true));
@@ -107,12 +93,11 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   useEffect(() => {
     if (!placesReady || !autoInputRef.current || autoCompleteRef.current) return;
     try {
-      if (!(window as any).google?.maps?.places) {
+      if (typeof google === 'undefined' || !google.maps?.places) {
         setPlacesError('Google Places library not available');
         return;
       }
-      // @ts-ignore
-      autoCompleteRef.current = new (window as any).google.maps.places.Autocomplete(autoInputRef.current!, {
+      autoCompleteRef.current = new google.maps.places.Autocomplete(autoInputRef.current!, {
         types: ['address'],
         fields: ['address_components', 'formatted_address', 'geometry'],
       });
@@ -120,7 +105,7 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
         const place = autoCompleteRef.current?.getPlace();
         if (!place?.address_components) return;
         const components: Record<string, string> = {};
-        place.address_components.forEach((c: any) => {
+        place.address_components.forEach((c: google.maps.GeocoderAddressComponent) => {
           c.types.forEach((t: string) => { components[t] = c.long_name; });
         });
         setValues(v => ({
@@ -136,8 +121,8 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
           autoInputRef.current.value = place.formatted_address;
         }
       });
-    } catch (e: any) {
-      setPlacesError(e?.message || 'Failed to initialise address autocomplete');
+    } catch (e: unknown) {
+      setPlacesError((e instanceof Error ? e.message : null) || 'Failed to initialise address autocomplete');
     }
   }, [placesReady]);
 

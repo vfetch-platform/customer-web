@@ -1,5 +1,4 @@
 "use client";
-import React from 'react';
 
 interface ProgressStepsProps {
   current: number; // 1-based index

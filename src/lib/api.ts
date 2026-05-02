@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_TIMEOUT_MS, API_MAX_RETRIES, API_RETRY_DELAY_MS, ERROR_MESSAGES } from '@/constants/api';
+import { CourierQuote } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -86,7 +87,7 @@ export function getErrorMessage(err: unknown): string {
 // API functions for the customer app
 export const customerApi = {
   // Search items
-  searchItems: async (query: string, filters?: any) => {
+  searchItems: async (query: string, filters?: Record<string, string>) => {
     const params = new URLSearchParams({
       q: query,
       ...filters,
@@ -156,9 +157,9 @@ export const customerApi = {
   createClaim: async (
     itemId: string,
     customer: { name: string; email: string; phone?: string },
-    opts?: { notes?: string; verificationAnswers?: any; queryId?: string }
+    opts?: { notes?: string; verificationAnswers?: Record<string, unknown>; queryId?: string }
   ) => {
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       itemId,
       customer,
     };
@@ -185,7 +186,7 @@ export const customerApi = {
   },
 
   // Book courier
-  bookCourier: async (claimId: string, quoteId: string, quote?: any) => {
+  bookCourier: async (claimId: string, quoteId: string, quote?: CourierQuote) => {
     const response = await api.post(`/courier/claims/${claimId}/book-courier`, {
       quoteId,
       quote,
@@ -208,7 +209,7 @@ export const customerApi = {
   },
 
   // Create a Stripe PaymentIntent for courier booking
-  createCourierPayment: async (claimId: string, quoteId: string, quote: any) => {
+  createCourierPayment: async (claimId: string, quoteId: string, quote: CourierQuote) => {
     const response = await api.post(`/courier/claims/${claimId}/create-courier-payment`, {
       quoteId,
       quote,
@@ -217,7 +218,7 @@ export const customerApi = {
   },
 
   // Confirm courier booking after Stripe payment succeeds
-  confirmCourierBooking: async (claimId: string, paymentIntentId: string, quoteId: string, quote: any) => {
+  confirmCourierBooking: async (claimId: string, paymentIntentId: string, quoteId: string, quote: CourierQuote) => {
     const response = await api.post(`/courier/claims/${claimId}/confirm-courier-booking`, {
       paymentIntentId,
       quoteId,

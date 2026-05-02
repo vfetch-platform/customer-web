@@ -7,7 +7,7 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
-import { type Stripe as StripeType } from '@stripe/stripe-js';
+import { type Stripe as StripeType, type StripeError, type PaymentIntent } from '@stripe/stripe-js';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import { getStripe } from '@/lib/stripe';
 import ErrorBanner from '@/components/ErrorBanner';
@@ -34,7 +34,7 @@ interface CourierPaymentProps {
 }
 
 function CheckoutForm({
-  claimId, quote, breakdown, paymentIntentId, onPaymentSuccess, onCancel,
+  claimId, quote, breakdown, paymentIntentId: _paymentIntentId, onPaymentSuccess, onCancel,
 }: {
   claimId: string;
   quote: CourierQuote;
@@ -64,8 +64,9 @@ function CheckoutForm({
         redirect: STRIPE_REDIRECT_MODE,
       });
 
-      if (stripeError && stripeError.code === STRIPE_UNEXPECTED_STATE_CODE && (stripeError as any).payment_intent?.status === 'succeeded') {
-        const succeededPiId = (stripeError as any).payment_intent.id;
+      const pi = (stripeError as StripeError & { payment_intent?: PaymentIntent })?.payment_intent;
+      if (stripeError && stripeError.code === STRIPE_UNEXPECTED_STATE_CODE && pi?.status === 'succeeded') {
+        const succeededPiId = pi.id;
         const result = await customerApi.confirmCourierBooking(claimId, succeededPiId, quote.id, quote);
         setBookingData(result.data); setSucceeded(true); onPaymentSuccess(result.data);
         return;

@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { SearchFormData } from '@/constants/search';
 import { PHONE_CODES } from '@/constants/countries';
 
