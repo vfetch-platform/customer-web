@@ -1,5 +1,4 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import CryptoJS from 'crypto-js';
 import { API_TIMEOUT_MS, API_MAX_RETRIES, API_RETRY_DELAY_MS, ERROR_MESSAGES } from '@/constants/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
@@ -142,14 +141,9 @@ export const customerApi = {
     venueId: string;
     category?: string;
     photoUrls?: string[];
+    termsAccepted: boolean;
   }) => {
-    // Generate SHA hash of email as per requirements
-    const emailHash = CryptoJS.SHA256(queryData.email).toString();
-
-    const response = await api.post('/queries', {
-      ...queryData,
-      emailHash,
-    });
+    const response = await api.post('/queries', queryData);
     return response.data;
   },
 
@@ -244,6 +238,18 @@ export const customerApi = {
     const response = await api.post(`/courier/claims/${claimId}/confirm-self-pickup`, {
       paymentIntentId,
     });
+    return response.data;
+  },
+
+  // Send email OTP for verification
+  sendOTP: async (email: string) => {
+    const response = await api.post('/verify/send-otp', { email });
+    return response.data;
+  },
+
+  // Verify email OTP
+  verifyOTP: async (email: string, otp: string) => {
+    const response = await api.post('/verify/confirm-otp', { email, otp });
     return response.data;
   },
 

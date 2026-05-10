@@ -83,7 +83,7 @@ export default function CollectionMethods({ claim, venue, onCourierBooked, onSel
 
   const getAddressFormInitialValue = (): Partial<AddressFormValues> => {
     if (isEditingAddress && addressFormData) return addressFormData;
-    return { fullName: claim.customer_name || '', email: claim.customer_email || '', phone: claim.customer_phone || '' };
+    return { fullName: claim.claimant?.full_name, email: claim.claimant?.email, phone: claim.claimant?.phone };
   };
 
   const handleAddressSubmit = (vals: AddressFormValues) => {
