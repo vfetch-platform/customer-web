@@ -224,6 +224,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
         venueId: venue.id,
         category: formData.category || undefined,
         photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
+        termsAccepted: termsAccepted,
       });
 
       const newQueryId = queryResponse.data.id;

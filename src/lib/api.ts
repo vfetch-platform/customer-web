@@ -141,6 +141,7 @@ export const customerApi = {
     venueId: string;
     category?: string;
     photoUrls?: string[];
+    termsAccepted: boolean;
   }) => {
     const response = await api.post('/queries', queryData);
     return response.data;
