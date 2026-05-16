@@ -12,6 +12,7 @@ import { customerApi, getErrorMessage } from '@/lib/api';
 import { getStripe } from '@/lib/stripe';
 import ErrorBanner from '@/components/ErrorBanner';
 import { STRIPE_APPEARANCE, STRIPE_REDIRECT_MODE, STRIPE_SUCCESS_STATUS, STRIPE_UNEXPECTED_STATE_CODE } from '@/constants/stripe';
+import { SELF_PICKUP_FEE } from '@/constants/fees';
 
 interface SelfPickupPaymentProps {
   claimId: string;
@@ -39,9 +40,12 @@ function CheckoutForm({
     if (!stripe || !elements) return;
     setProcessing(true); setError(null);
     try {
+      const returnUrl = new URL(window.location.href);
+      returnUrl.searchParams.set('tab', 'status');
+      returnUrl.searchParams.set('payment_type', 'self_pickup');
       const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
         elements,
-        confirmParams: { return_url: window.location.href },
+        confirmParams: { return_url: returnUrl.toString() },
         redirect: STRIPE_REDIRECT_MODE,
       });
 
@@ -50,6 +54,7 @@ function CheckoutForm({
         const succeededPiId = pi.id;
         await customerApi.confirmSelfPickup(claimId, succeededPiId);
         setSucceeded(true); onPaymentSuccess(succeededPiId);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
@@ -66,6 +71,7 @@ function CheckoutForm({
 
       await customerApi.confirmSelfPickup(claimId, paymentIntent.id);
       setSucceeded(true); onPaymentSuccess(paymentIntent.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally { setProcessing(false); }
@@ -145,7 +151,7 @@ export default function SelfPickupPayment({ claimId, onPaymentSuccess, onCancel 
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
-  const [platformFee, setPlatformFee] = useState<number>(0);
+  const [platformFee, setPlatformFee] = useState<number>(SELF_PICKUP_FEE);
   const [stripeInstance, setStripeInstance] = useState<StripeType | null>(null);
   const initRef = useRef(false);
 
@@ -160,7 +166,7 @@ export default function SelfPickupPayment({ claimId, onPaymentSuccess, onCancel 
       setStripeInstance(stripe);
       setClientSecret(res.data.clientSecret);
       setPaymentIntentId(res.data.paymentIntentId);
-      setPlatformFee(res.data.amount ?? res.data.platformFee ?? 0);
+      setPlatformFee(res.data.amount ?? res.data.platformFee ?? SELF_PICKUP_FEE);
     } catch (err: unknown) {
       initRef.current = false;
       setError(getErrorMessage(err));

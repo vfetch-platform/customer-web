@@ -58,10 +58,6 @@ export default function Step3Review({
             <p className="text-outline text-xs mb-0.5">Email</p>
             <p className="text-on-surface font-medium">{formData.email || '—'}</p>
           </div>
-          <div>
-            <p className="text-outline text-xs mb-0.5">Phone</p>
-            <p className="text-on-surface font-medium">{formData.phone ? `${formData.phoneCountryCode} ${formData.phone}` : '—'}</p>
-          </div>
         </div>
       </section>
 

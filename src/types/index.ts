@@ -144,6 +144,13 @@ export interface CourierQuote {
     distance_miles?: number;
     estimated_duration?: number;
     chosen_insurance_extras?: Array<{ Type: string }>;
+    delivery_address?: {
+      ContactName?: string;
+      Phone?: string;
+      Email?: string;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
   };
 }
 

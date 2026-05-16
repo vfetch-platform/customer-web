@@ -214,7 +214,6 @@ export default function WizardShell({ venue }: WizardShellProps) {
       const queryResponse = await customerApi.createQuery({
         name: formData.name,
         email: formData.email,
-        phone: formData.phoneCountryCode + ' ' + formData.phone,
         location: formData.location,
         datesOfStay: { checkin: formData.checkinDate, checkout: formData.checkoutDate },
         bookingReference: formData.bookingReference || undefined,
@@ -245,7 +244,7 @@ export default function WizardShell({ venue }: WizardShellProps) {
     try {
       const response = await customerApi.createClaim(
         item.id,
-        { name: formData.name, email: formData.email, phone: formData.phone || undefined },
+        { name: formData.name, email: formData.email },
         { queryId }
       );
       setClaimId(response.data.id);

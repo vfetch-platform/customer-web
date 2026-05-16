@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_TIMEOUT_MS, API_MAX_RETRIES, API_RETRY_DELAY_MS, ERROR_MESSAGES } from '@/constants/api';
-import { CourierQuote, CustomsData } from '@/types';
+import { CourierQuote } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -134,7 +134,6 @@ export const customerApi = {
   createQuery: async (queryData: {
     name: string;
     email: string;
-    phone: string;
     location?: string;
     datesOfStay: { checkin: string; checkout: string };
     bookingReference?: string;
@@ -224,20 +223,9 @@ export const customerApi = {
   },
 
   // Confirm courier booking after Stripe payment succeeds
-  confirmCourierBooking: async (
-    claimId: string,
-    paymentIntentId: string,
-    quoteId: string,
-    quote: CourierQuote,
-    chosenInsuranceExtras?: Array<{ Type: string }>,
-    customsData?: CustomsData,
-  ) => {
+  confirmCourierBooking: async (claimId: string, paymentIntentId: string) => {
     const response = await api.post(`/courier/claims/${claimId}/confirm-courier-booking`, {
       paymentIntentId,
-      quoteId,
-      quote,
-      ...(chosenInsuranceExtras && chosenInsuranceExtras.length > 0 && { chosenInsuranceExtras }),
-      ...(customsData && { customsData }),
     });
     return response.data;
   },

@@ -11,7 +11,7 @@ import { type Stripe as StripeType, type StripeError, type PaymentIntent } from 
 import { customerApi, getErrorMessage } from '@/lib/api';
 import { getStripe } from '@/lib/stripe';
 import ErrorBanner from '@/components/ErrorBanner';
-import { CourierQuote, CustomsData } from '@/types';
+import { CourierQuote } from '@/types';
 import { STRIPE_APPEARANCE, STRIPE_REDIRECT_MODE, STRIPE_SUCCESS_STATUS, STRIPE_UNEXPECTED_STATE_CODE } from '@/constants/stripe';
 
 interface FeeBreakdown {
@@ -24,8 +24,6 @@ interface FeeBreakdown {
 interface CourierPaymentProps {
   claimId: string;
   quote: CourierQuote;
-  chosenInsuranceExtras?: Array<{ Type: string }>;
-  customsData?: CustomsData;
   onPaymentSuccess: (booking: {
     booking_id: string;
     tracking_number: string;
@@ -36,12 +34,10 @@ interface CourierPaymentProps {
 }
 
 function CheckoutForm({
-  claimId, quote, chosenInsuranceExtras, customsData, breakdown, paymentIntentId: _paymentIntentId, onPaymentSuccess, onCancel,
+  claimId, quote, breakdown, paymentIntentId: _paymentIntentId, onPaymentSuccess, onCancel,
 }: {
   claimId: string;
   quote: CourierQuote;
-  chosenInsuranceExtras?: Array<{ Type: string }>;
-  customsData?: CustomsData;
   breakdown: FeeBreakdown;
   paymentIntentId: string;
   onPaymentSuccess: CourierPaymentProps['onPaymentSuccess'];
@@ -62,17 +58,21 @@ function CheckoutForm({
     setProcessing(true);
     setError(null);
     try {
+      const returnUrl = new URL(window.location.href);
+      returnUrl.searchParams.set('tab', 'status');
+      returnUrl.searchParams.set('payment_type', 'courier');
       const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
         elements,
-        confirmParams: { return_url: window.location.href },
+        confirmParams: { return_url: returnUrl.toString() },
         redirect: STRIPE_REDIRECT_MODE,
       });
 
       const pi = (stripeError as StripeError & { payment_intent?: PaymentIntent })?.payment_intent;
       if (stripeError && stripeError.code === STRIPE_UNEXPECTED_STATE_CODE && pi?.status === 'succeeded') {
         const succeededPiId = pi.id;
-        const result = await customerApi.confirmCourierBooking(claimId, succeededPiId, quote.id, quote, chosenInsuranceExtras, customsData);
+        const result = await customerApi.confirmCourierBooking(claimId, succeededPiId);
         setBookingData(result.data); setSucceeded(true); onPaymentSuccess(result.data);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
@@ -89,8 +89,9 @@ function CheckoutForm({
         return;
       }
 
-      const result = await customerApi.confirmCourierBooking(claimId, paymentIntent.id, quote.id, quote, chosenInsuranceExtras, customsData);
+      const result = await customerApi.confirmCourierBooking(claimId, paymentIntent.id);
       setBookingData(result.data); setSucceeded(true); onPaymentSuccess(result.data);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {
@@ -211,7 +212,7 @@ function CheckoutForm({
   );
 }
 
-export default function CourierPayment({ claimId, quote, chosenInsuranceExtras, customsData, onPaymentSuccess, onCancel }: CourierPaymentProps) {
+export default function CourierPayment({ claimId, quote, onPaymentSuccess, onCancel }: CourierPaymentProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -267,7 +268,7 @@ export default function CourierPayment({ claimId, quote, chosenInsuranceExtras, 
 
   return (
     <Elements stripe={stripeInstance} options={{ clientSecret, appearance: STRIPE_APPEARANCE }}>
-      <CheckoutForm claimId={claimId} quote={quote} chosenInsuranceExtras={chosenInsuranceExtras} customsData={customsData} breakdown={breakdown} paymentIntentId={paymentIntentId} onPaymentSuccess={onPaymentSuccess} onCancel={onCancel} />
+      <CheckoutForm claimId={claimId} quote={quote} breakdown={breakdown} paymentIntentId={paymentIntentId} onPaymentSuccess={onPaymentSuccess} onCancel={onCancel} />
     </Elements>
   );
 }

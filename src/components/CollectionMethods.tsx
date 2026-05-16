@@ -9,7 +9,7 @@ import CourierAddressForm, { AddressFormValues } from './CourierAddressForm';
 import CourierPayment from './CourierPayment';
 import SelfPickupPayment from './SelfPickupPayment';
 import CustomsForm from './CustomsForm';
-import { PLATFORM_FEE, MAX_ITEM_VALUE } from '@/constants/fees';
+import { PLATFORM_FEE, SELF_PICKUP_FEE, MAX_ITEM_VALUE } from '@/constants/fees';
 import { ADDRESS_FORM_SUBMIT_DELAY_MS } from '@/constants/api';
 import { UK_POSTCODE_REGEX } from '@/constants/regex';
 
@@ -39,6 +39,11 @@ const TIER_INFO: Record<ParcelTier, { label: string; examples: string }> = {
   xl: { label: 'Extra Large',examples: 'large suitcase, big winter coat, small musical instrument' },
 };
 
+// Only show courier-collects-from-venue services (Collection type).
+// Shop/Locker require venue staff to physically drop the parcel off — not suitable.
+const isDropOffByVenue = (q: { collection_type: string }) =>
+  q.collection_type === 'Collection';
+
 export default function CollectionMethods({ claim, venue: _venue, onCourierBooked, onSelfPickupConfirmed, onBack, onFlowChange }: CollectionMethodsProps) {
   const [selectedMethod, setSelectedMethod] = useState<'self_pickup' | 'parcel2go' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -52,7 +57,6 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
   const [detailQuote, setDetailQuote] = useState<CourierQuote | null>(null);
   const [filterServiceTypes, setFilterServiceTypes] = useState<Set<string>>(new Set());
   const [filterDelivery, setFilterDelivery] = useState<Set<string>>(new Set());
-  const [filterPrinting, setFilterPrinting] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'price' | 'delivery'>('price');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +64,7 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
   const [showSelfPickupPayment, setShowSelfPickupPayment] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [showCustomsForm, setShowCustomsForm] = useState(false);
-  const [customsData, setCustomsData] = useState<CustomsData | null>(null);
+  const [_customsData, setCustomsData] = useState<CustomsData | null>(null);
   const [pendingBooking, setPendingBooking] = useState<{ quote: CourierQuote; coverExtra: CourierQuoteExtra | null; additionalExtras: CourierQuoteExtra[] } | null>(null);
   const [paymentQuote, setPaymentQuote] = useState<CourierQuote | null>(null);
   const [, setFeeBreakdown] = useState<{ courierCost: number; platformFee: number; total: number } | null>(null);
@@ -94,9 +98,26 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
         ...(coverExtra ? [{ Type: coverExtra.type }] : []),
         ...(additionalExtras ?? []).map(e => ({ Type: e.type })),
       ];
-      const quoteWithExtra: CourierQuote = allChosen.length > 0
-        ? { ...quote, metadata: { ...quote.metadata, chosen_insurance_extras: allChosen } }
-        : quote;
+      // Patch the delivery address in the quote metadata with the recipient's
+      // name and phone from the address form so Parcel2Go gets the correct contact.
+      const patchedMetadata = addressFormData
+        ? {
+            ...quote.metadata,
+            delivery_address: {
+              ...(quote.metadata?.delivery_address as object | undefined),
+              ContactName: addressFormData.fullName,
+              Phone: addressFormData.phone,
+              Email: addressFormData.email,
+            },
+          }
+        : quote.metadata;
+      const quoteWithExtra: CourierQuote = {
+        ...quote,
+        metadata: {
+          ...patchedMetadata,
+          ...(allChosen.length > 0 ? { chosen_insurance_extras: allChosen } : {}),
+        },
+      };
       const breakdownRes = await customerApi.getCourierFeeBreakdown(claim.id, quote.price);
       setFeeBreakdown(breakdownRes.data);
       setPaymentQuote(quoteWithExtra);
@@ -191,14 +212,6 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
     return 'Slow';
   };
 
-  const deliveryTypeIcon = (type?: string): { icon: string; label: string } => {
-    const t = (type ?? '').toLowerCase();
-    if (t.includes('door')) return { icon: 'home', label: 'Door delivery' };
-    if (t.includes('locker')) return { icon: 'lock', label: 'Locker pickup' };
-    if (t.includes('shop') || t.includes('store')) return { icon: 'storefront', label: 'Shop pickup' };
-    if (t.includes('post') || t.includes('office')) return { icon: 'markunread_mailbox', label: 'Post office' };
-    return { icon: 'local_shipping', label: type ?? 'Delivery' };
-  };
 
   // Derive collection flow step for the mini stepper
   const flowStep = !selectedMethod ? 1 : (showPayment || showSelfPickupPayment) ? 3 : showCustomsForm ? 3 : 2;
@@ -254,7 +267,8 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
                 <span className="material-symbols-outlined text-primary text-xl">location_on</span>
               </div>
               <h3 className="font-headline text-lg font-bold text-primary mb-2">Self Pickup</h3>
-              <p className="text-on-secondary-container text-sm mb-5 flex-grow">Collect from the venue directly during opening hours.</p>
+              <p className="text-on-secondary-container text-sm mb-3 flex-grow">Collect from the venue directly during opening hours.</p>
+              <p className="font-headline text-lg font-bold text-primary mb-5">&pound;{SELF_PICKUP_FEE.toFixed(2)} <span className="text-sm font-normal text-on-secondary-container">platform fee</span></p>
               <button onClick={() => handleMethodSelect('self_pickup')}
                 className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all">
                 Self Pickup
@@ -348,7 +362,7 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
             <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
               <h3 className="font-headline text-xl font-bold text-primary mb-4">Self Pickup Instructions</h3>
               <div className="space-y-3 text-on-secondary-container text-sm mb-6">
-                <p>1. Complete the platform fee payment below</p>
+                <p>1. Complete the &pound;{SELF_PICKUP_FEE.toFixed(2)} platform fee payment below</p>
                 <p>2. Your pickup code and venue details will appear after payment</p>
                 <p>3. Visit the venue during collection hours with your pickup code</p>
                 <p>4. Bring valid photo ID matching your claim details</p>
@@ -379,9 +393,18 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
       {/* ═══ COURIER FLOW ═══ */}
       {selectedMethod === 'parcel2go' && (
         <div className="space-y-6">
-          <button type="button" onClick={() => { setSelectedMethod(null); setQuotes([]); setSelectedQuote(null); setError(null); }}
+          <button
+            type="button"
+            onClick={() => {
+              if (showPayment) {
+                handlePaymentCancel();
+              } else {
+                setSelectedMethod(null); setQuotes([]); setSelectedQuote(null); setError(null);
+              }
+            }}
             className="inline-flex items-center text-sm text-on-secondary-container hover:text-primary font-medium gap-1">
-            <span className="material-symbols-outlined text-lg">arrow_back</span> Back to collection methods
+            <span className="material-symbols-outlined text-lg">arrow_back</span>
+            {showPayment ? 'Back to quotes' : 'Back to collection methods'}
           </button>
 
           <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
@@ -391,13 +414,15 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
                 key={`${claim.claimant?.full_name}|${claim.claimant?.email}`}
                 stepNumber={1}
                 title="Courier delivery address"
-                submitting={submittingAddress} onSubmit={handleAddressSubmit} initialValue={getAddressFormInitialValue()} />
+                submitting={submittingAddress} onSubmit={handleAddressSubmit} initialValue={getAddressFormInitialValue()} lockEmail />
             )}
             {addressFormData && !isEditingAddress && (
               <div className="rounded-xl bg-surface-container-low p-4 text-sm space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="font-headline font-bold text-primary">Address Saved</p>
-                  <button type="button" onClick={() => setIsEditingAddress(true)} className="text-xs font-bold text-surface-tint hover:underline">Edit</button>
+                  {!showPayment && (
+                    <button type="button" onClick={() => { setIsEditingAddress(true); setQuotes([]); setQuotesLoaded(false); setSelectedQuote(null); }} className="text-xs font-bold text-surface-tint hover:underline">Edit</button>
+                  )}
                 </div>
                 <p className="text-on-surface">{addressFormData.fullName}</p>
                 <p className="text-on-secondary-container">{[addressFormData.address1, addressFormData.address2].filter(Boolean).join(', ')}</p>
@@ -473,101 +498,72 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
                 <p className="text-sm text-on-tertiary-fixed-variant">A platform fee of <strong>&pound;{PLATFORM_FEE.toFixed(2)}</strong> applies to all claims.</p>
               </div>
 
-              <div className="flex gap-6 items-start">
-                {/* ── Filter panel ── */}
-                <div className="w-52 shrink-0 bg-white rounded-2xl border border-outline-variant/10 shadow-sm p-4 space-y-5">
-                  <p className="font-headline font-bold text-on-surface text-sm">
-                    Filter
-                    {(filterServiceTypes.size + filterDelivery.size + filterPrinting.size) > 0 && (
-                      <span className="ml-1.5 text-[11px] font-normal text-surface-tint">
-                        ({filterServiceTypes.size + filterDelivery.size + filterPrinting.size} applied)
-                      </span>
-                    )}
-                  </p>
+              <div className="space-y-3">
+                {/* ── Top bar: title + sort + filter chips ── */}
+                <div className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm -mx-1 px-1 py-2 flex flex-wrap items-center gap-2">
+                  <h4 className="font-headline font-bold text-primary mr-auto">Available Options</h4>
 
                   {/* Sort */}
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-outline block mb-1.5">Sort By</label>
-                    <select
-                      value={sortBy}
-                      onChange={e => setSortBy(e.target.value as 'price' | 'delivery')}
-                      className="w-full text-sm border border-outline-variant/20 rounded-lg px-3 py-2 bg-surface-container-low text-on-surface focus:outline-none focus:border-primary">
-                      <option value="price">Price</option>
-                      <option value="delivery">Est. Delivery</option>
-                    </select>
-                  </div>
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value as 'price' | 'delivery')}
+                    className="text-xs border border-outline-variant/20 rounded-full px-3 py-1.5 bg-white text-on-surface focus:outline-none focus:border-primary">
+                    <option value="price">Sort: Price</option>
+                    <option value="delivery">Sort: Delivery</option>
+                  </select>
 
-                  {/* Service Options */}
-                  <FilterGroup
-                    title="Service Options"
-                    options={[
-                      { value: 'Collection', label: 'Collection services' },
-                      { value: 'Shop',       label: 'Drop off services' },
-                      { value: 'Locker',     label: 'Locker services' },
-                    ]}
-                    selected={filterServiceTypes}
-                    onChange={setFilterServiceTypes}
-                  />
+                  {/* Delivery type chips — filter by how parcel reaches recipient */}
+                  {[{ value: 'Door', label: 'Door delivery' }, { value: 'Shop', label: 'Shop collect' }].map(opt => (
+                    <button key={opt.value}
+                      onClick={() => {
+                        const next = new Set(filterServiceTypes);
+                        if (next.has(opt.value)) { next.delete(opt.value); } else { next.add(opt.value); }
+                        setFilterServiceTypes(next);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-colors ${
+                        filterServiceTypes.has(opt.value)
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-white text-on-secondary-container border-outline-variant/30 hover:border-primary/40'
+                      }`}>
+                      {opt.label}
+                    </button>
+                  ))}
 
-                  {/* Estimated Delivery */}
-                  <FilterGroup
-                    title="Estimated Delivery"
-                    options={[
-                      { value: 'Fast',   label: 'Express 1–2 Day' },
-                      { value: 'Medium', label: 'Economy 3 Day+' },
-                      { value: 'Slow',   label: 'Super Economy 5 Day+' },
-                    ]}
-                    selected={filterDelivery}
-                    onChange={setFilterDelivery}
-                  />
+                  {/* Speed chips */}
+                  {[{ value: 'Fast', label: 'Express' }, { value: 'Medium', label: 'Economy' }, { value: 'Slow', label: 'Super Eco' }].map(opt => (
+                    <button key={opt.value}
+                      onClick={() => {
+                        const next = new Set(filterDelivery);
+                        if (next.has(opt.value)) { next.delete(opt.value); } else { next.add(opt.value); }
+                        setFilterDelivery(next);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-colors ${
+                        filterDelivery.has(opt.value)
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-white text-on-secondary-container border-outline-variant/30 hover:border-primary/40'
+                      }`}>
+                      {opt.label}
+                    </button>
+                  ))}
 
-                  {/* Label Printing */}
-                  <FilterGroup
-                    title="Label Printing"
-                    options={[
-                      { value: 'not_required', label: 'Print own labels' },
-                      { value: 'required',     label: 'Print labels in-store' },
-                    ]}
-                    selected={filterPrinting}
-                    onChange={setFilterPrinting}
-                  />
-
-                  {(filterServiceTypes.size + filterDelivery.size + filterPrinting.size) > 0 && (
-                    <button
-                      onClick={() => { setFilterServiceTypes(new Set()); setFilterDelivery(new Set()); setFilterPrinting(new Set()); }}
-                      className="text-xs text-surface-tint hover:underline font-medium">
-                      Clear all filters
+                  {(filterServiceTypes.size + filterDelivery.size) > 0 && (
+                    <button onClick={() => { setFilterServiceTypes(new Set()); setFilterDelivery(new Set()); }}
+                      className="text-xs text-surface-tint hover:underline font-medium ml-1">
+                      Clear
                     </button>
                   )}
                 </div>
 
-                {/* ── Quotes ── */}
-                <div className="flex-1 min-w-0 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-headline font-bold text-primary">Available Delivery Options</h4>
-                    <p className="text-xs text-on-secondary-container">
-                      {[...quotes].filter(q => {
-                        if (filterServiceTypes.size > 0 && !filterServiceTypes.has(q.collection_type)) return false;
-                        if (filterDelivery.size > 0 && !filterDelivery.has(deliverySpeed(q))) return false;
-                        if (filterPrinting.size > 0) {
-                          const need = q.is_printer_required ? 'required' : 'not_required';
-                          if (!filterPrinting.has(need)) return false;
-                        }
-                        return true;
-                      }).length} services
-                    </p>
-                  </div>
+                {/* ── Quotes list ── */}
+                <div className="space-y-3">
               {[...quotes]
                 .sort((a, b) => sortBy === 'price'
                   ? a.price - b.price
                   : Date.parse(a.estimated_delivery) - Date.parse(b.estimated_delivery))
                 .filter((q) => {
-                  if (filterServiceTypes.size > 0 && !filterServiceTypes.has(q.collection_type)) return false;
+                  if (!isDropOffByVenue(q)) return false;
+                  if (filterServiceTypes.size > 0 && !filterServiceTypes.has(q.delivery_type)) return false;
                   if (filterDelivery.size > 0 && !filterDelivery.has(deliverySpeed(q))) return false;
-                  if (filterPrinting.size > 0) {
-                    const need = q.is_printer_required ? 'required' : 'not_required';
-                    if (!filterPrinting.has(need)) return false;
-                  }
                   return true;
                 })
                 .map((quote) => {
@@ -583,87 +579,96 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
                     ? `Book by ${cutoffDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} today`
                     : null;
 
-                  const { icon, label } = deliveryTypeIcon(quote.delivery_type);
+
+                  const collectionDateLabel = (() => {
+                    const d = new Date(quote.collection_date);
+                    return isNaN(d.getTime()) ? null : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                  })();
+                  const coverLabel = quote.included_cover > 0
+                    ? `£${quote.included_cover} cover included`
+                    : quote.max_cover > 0
+                      ? `Up to £${quote.max_cover.toLocaleString()} cover available`
+                      : null;
 
                   return (
                     <div key={quote.id}
-                      className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+                      className="bg-white rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md hover:border-primary/20 transition-all overflow-hidden">
 
-                      {/* Printer badge */}
-                      <div className="flex justify-end px-4 pt-3 pb-0">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
-                          quote.is_printer_required
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-surface-container-high text-on-secondary-container'
-                        }`}>
-                          <span className="material-symbols-outlined text-sm">{quote.is_printer_required ? 'print' : 'print_disabled'}</span>
-                          {quote.is_printer_required ? 'Printer Needed' : 'Printer Not Needed'}
-                        </span>
-                      </div>
-
-                      {/* Main row */}
-                      <div className="flex items-center gap-3 px-4 py-3">
-                        {/* Logo */}
+                      {/* ── Top row: logo + name + speed chip + price + CTA ── */}
+                      <div className="flex items-center gap-4 px-5 pt-5 pb-4">
                         {quote.logo_url ? (
-                          <Image src={quote.logo_url} alt={quote.service} width={48} height={48} className="object-contain rounded-lg shrink-0" />
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={quote.logo_url} alt={quote.service} className="w-12 h-12 object-contain rounded-xl shrink-0" />
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
+                          <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
                             <span className="material-symbols-outlined text-primary text-2xl">local_shipping</span>
                           </div>
                         )}
 
-                        {/* Name */}
-                        <p className="flex-1 min-w-0 font-headline font-bold text-on-surface leading-tight truncate">
-                          {quote.service}
-                        </p>
-                      </div>
-
-                      {/* Detail bar */}
-                      <div className="border-t border-outline-variant/10 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-
-                        {/* Collection type */}
-                        <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
-                          <span className="material-symbols-outlined text-sm text-surface-tint">{icon}</span>
-                          <span>{label}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-headline font-bold text-on-surface text-base leading-snug">
+                              {quote.service}
+                            </p>
+                            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${
+                              deliverySpeed(quote) === 'Fast'
+                                ? 'bg-green-50 text-green-700'
+                                : deliverySpeed(quote) === 'Medium'
+                                  ? 'bg-blue-50 text-blue-700'
+                                  : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {quote.estimated_delivery_label || deliverySpeed(quote)}
+                            </span>
+                          </div>
+                          {cutoffLabel && (
+                            <p className="text-xs text-amber-600 font-medium mt-0.5">{cutoffLabel}</p>
+                          )}
                         </div>
 
-                        {/* Est delivery */}
-                        {etaLabel && (
-                          <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
-                            <span className="material-symbols-outlined text-sm text-surface-tint">calendar_today</span>
-                            <div>
-                              <p className="font-medium text-on-surface">Est Delivery</p>
-                              <p>{etaLabel}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Speed chip */}
-                        <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-[11px] font-bold text-on-secondary-container">
-                          {quote.estimated_delivery_label || deliverySpeed(quote)}
-                        </span>
-
-                        {cutoffLabel && (
-                          <span className="text-[11px] font-medium text-amber-600">{cutoffLabel}</span>
-                        )}
-
-                        {/* Price + Proceed button */}
-                        <div className="ml-auto flex items-center gap-3 flex-wrap justify-end">
-                          <p className="font-headline text-lg font-bold text-primary whitespace-nowrap">
-                            from &pound;{(quote.price + PLATFORM_FEE).toFixed(2)}
+                        <div className="flex flex-col items-end gap-2 shrink-0 ml-2">
+                          <p className="font-headline text-2xl font-bold text-primary leading-none">
+                            &pound;{(quote.price + PLATFORM_FEE).toFixed(2)}
                           </p>
+                          <p className="text-[11px] text-on-secondary-container">incl. £{PLATFORM_FEE.toFixed(2)} fee</p>
                           <button
                             onClick={() => setDetailQuote(quote)}
-                            className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors whitespace-nowrap">
-                            Proceed to Book
+                            className="px-6 py-2.5 rounded-full bg-primary text-white text-sm font-bold hover:bg-primary/90 active:scale-95 transition-all whitespace-nowrap">
+                            Book
                           </button>
                         </div>
                       </div>
+
+                      {/* ── Details row ── */}
+                      <div className="border-t border-outline-variant/10 px-5 py-3 bg-surface-container-low/40 flex flex-wrap gap-x-5 gap-y-2">
+                        {etaLabel && (
+                          <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
+                            <span className="material-symbols-outlined text-sm text-surface-tint">calendar_today</span>
+                            <span>Arrives <strong className="text-on-surface">{etaLabel}</strong></span>
+                          </div>
+                        )}
+                        {collectionDateLabel && (
+                          <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
+                            <span className="material-symbols-outlined text-sm text-surface-tint">directions_car</span>
+                            <span>Collection <strong className="text-on-surface">{collectionDateLabel}</strong></span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
+                          <span className="material-symbols-outlined text-sm text-surface-tint">home</span>
+                          <span className="capitalize">{quote.delivery_type === 'Door' ? 'Door delivery' : quote.delivery_type + ' delivery'}</span>
+                        </div>
+                        {coverLabel && (
+                          <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
+                            <span className="material-symbols-outlined text-sm text-surface-tint">shield</span>
+                            <span>{coverLabel}</span>
+                          </div>
+                        )}
+                      </div>
+
                     </div>
                   );
                 })}
-                </div>{/* end quotes column */}
-              </div>{/* end filter+quotes row */}
+                </div>{/* end quotes list */}
+              </div>{/* end top-bar + quotes */}
             </div>
           )}
 
@@ -688,7 +693,6 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
               <CourierPayment
                 claimId={claim.id}
                 quote={paymentQuote}
-                customsData={customsData ?? undefined}
                 onPaymentSuccess={handlePaymentSuccess}
                 onCancel={handlePaymentCancel}
               />
@@ -704,48 +708,6 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
         onClose={() => setDetailQuote(null)}
       />
     )}
-    </div>
-  );
-}
-
-// ─── Filter Group ────────────────────────────────────────────────────────────
-
-function FilterGroup({
-  title,
-  options,
-  selected,
-  onChange,
-}: {
-  title: string;
-  options: { value: string; label: string }[];
-  selected: Set<string>;
-  onChange: (next: Set<string>) => void;
-}) {
-  const toggle = (value: string) => {
-    const next = new Set(selected);
-    if (next.has(value)) { next.delete(value); } else { next.add(value); }
-    onChange(next);
-  };
-  return (
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">{title}</p>
-      <div className="space-y-2">
-        {options.map(({ value, label }) => (
-          <label key={value} className="flex items-center gap-2.5 cursor-pointer group">
-            <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-              selected.has(value)
-                ? 'bg-primary border-primary'
-                : 'border-outline-variant/40 group-hover:border-primary/50'
-            }`}>
-              {selected.has(value) && (
-                <span className="material-symbols-outlined text-white text-[12px]">check</span>
-              )}
-            </span>
-            <input type="checkbox" className="sr-only" checked={selected.has(value)} onChange={() => toggle(value)} />
-            <span className="text-sm text-on-surface">{label}</span>
-          </label>
-        ))}
-      </div>
     </div>
   );
 }
@@ -831,7 +793,8 @@ function CourierDetailModal({ quote, onBook, onClose }: CourierDetailModalProps)
         {/* ── Modal header ── */}
         <div className="bg-surface-container-low px-5 py-4 flex items-center gap-3 shrink-0">
           {quote.logo_url ? (
-            <Image src={quote.logo_url} alt={quote.service} width={40} height={40} className="object-contain rounded-lg shrink-0" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={quote.logo_url} alt={quote.service} className="w-10 h-10 object-contain rounded-lg shrink-0" />
           ) : (
             <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
@@ -843,12 +806,6 @@ function CourierDetailModal({ quote, onBook, onClose }: CourierDetailModalProps)
               <p className="text-xs text-on-secondary-container mt-0.5">Drop off at {dropOffName}</p>
             )}
           </div>
-          <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full shrink-0 ${
-            quote.is_printer_required ? 'bg-amber-50 text-amber-700' : 'bg-white text-on-secondary-container border border-outline-variant/20'
-          }`}>
-            <span className="material-symbols-outlined text-sm">{quote.is_printer_required ? 'print' : 'print_disabled'}</span>
-            {quote.is_printer_required ? 'Printer Needed' : 'Printer Not Needed'}
-          </span>
           <button onClick={onClose} className="ml-1 text-outline hover:text-on-surface transition-colors shrink-0">
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
