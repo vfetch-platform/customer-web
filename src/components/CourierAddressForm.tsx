@@ -51,6 +51,20 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Sync contact fields from initialValue if they arrive after mount (e.g. claim data loads late)
+  useEffect(() => {
+    if (!initialValue) return;
+    setValues(prev => ({
+      ...prev,
+      fullName: prev.fullName || initialValue.fullName || '',
+      email:    prev.email    || initialValue.email    || '',
+      phone:    prev.phone    || initialValue.phone    || '',
+      country:  prev.country  || initialValue.country  || '',
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [placesReady, setPlacesReady] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
   const autoInputRef = useRef<HTMLInputElement | null>(null);

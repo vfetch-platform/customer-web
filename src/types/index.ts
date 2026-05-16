@@ -34,6 +34,8 @@ export interface Venue {
   review_url?: string;
 }
 
+export type ParcelTier = 'xs' | 's' | 'm' | 'l' | 'xl';
+
 export interface Item {
   id: string;
   title: string;
@@ -49,6 +51,8 @@ export interface Item {
   date_found: string;
   location_found?: string;
   status: 'available' | 'reserved' | 'released' | 'expired';
+  /** Confirmed parcel tier — drives the read-only "Your parcel" info card. */
+  parcel_tier?: ParcelTier;
   created_at: string;
   match_score?: number;
   similarity_score?: number;
@@ -77,25 +81,86 @@ export interface Claim {
   item?: Item;
 }
 
+export interface InsuranceExtra {
+  Type: string;   // 'Cover' | 'ExtendedBaseCover'
+  Price: number;
+  Vat: number;
+  Total: number;
+}
+
+export interface CourierQuoteExtra {
+  type: string;   // 'Signature' | 'PrintInStore' | 'Cover' | 'ExtendedBaseCover'
+  price: number;
+  vat: number;
+  total: number;
+}
+
 export interface CourierQuote {
   id: string;
   service: string;
   price: number;
+  price_ex_vat: number;
+  vat: number;
+  vat_rate: number;
   currency: string;
   estimated_delivery: string;
+  estimated_delivery_label: string;
+  collection_date: string;
+  cutoff: string;
   description: string;
   provider?: 'parcel2go' | 'uber' | 'uber_parcel';
+  logo_url?: string;
+  collection_type: string;
+  delivery_type: string;
+  is_printer_required: boolean;
+  included_cover: number;
+  max_cover: number;
+  available_extras: CourierQuoteExtra[];
+  max_dimensions: {
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+  };
+  requires_customs: boolean;
+  requires_commercial_invoice: boolean;
+  tariff_code_required: boolean;
+  country_of_manufacture_required: boolean;
+  export_reason_required: boolean;
+  recipient_tax_id_requirements: unknown | null;
+  sender_tax_id_requirements: unknown | null;
+  sender_eori_requirements: unknown | null;
+  ioss_requirements: unknown | null;
+  recipient_eori_requirements: unknown | null;
+  service_description: string;
+  tags: string[];
+  drop_off_provider: string | null;
   metadata?: {
     service_slug?: string;
     courier_name?: string;
     collection_type?: string;
     delivery_type?: string;
-    classification?: string;
-    insurance?: number;
     collection_date?: string;
     distance_miles?: number;
     estimated_duration?: number;
+    chosen_insurance_extras?: Array<{ Type: string }>;
   };
+}
+
+export interface CustomsContentItem {
+  description: string;
+  quantity: number;
+  estimated_value: number;
+  tariff_code?: string;
+  origin_country?: string;
+}
+
+export interface CustomsData {
+  export_reason: 'Gift' | 'Sale' | 'Sample' | 'Repair' | 'Documents' | 'TemporaryExport';
+  vat_status: 'NotRegistered' | 'Registered';
+  recipient_vat_status: 'Individual' | 'Business';
+  eori_number?: string;
+  contents: CustomsContentItem[];
 }
 
 export interface DeliveryTracking {

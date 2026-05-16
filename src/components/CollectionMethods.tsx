@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import ErrorBanner from '@/components/ErrorBanner';
-import { Venue, Claim, CourierQuote } from '@/types';
+import { Venue, Claim, CourierQuote, CourierQuoteExtra, CustomsData, ParcelTier } from '@/types';
 import CourierAddressForm, { AddressFormValues } from './CourierAddressForm';
 import CourierPayment from './CourierPayment';
 import SelfPickupPayment from './SelfPickupPayment';
-import { PLATFORM_FEE, MAX_ITEM_VALUE, COURIER_STARTING_FROM } from '@/constants/fees';
+import CustomsForm from './CustomsForm';
+import { PLATFORM_FEE, MAX_ITEM_VALUE } from '@/constants/fees';
 import { ADDRESS_FORM_SUBMIT_DELAY_MS } from '@/constants/api';
 import { UK_POSTCODE_REGEX } from '@/constants/regex';
 
@@ -28,6 +29,16 @@ interface CollectionMethodsProps {
   onFlowChange?: (isInFlow: boolean) => void;
 }
 
+// Display copy for each tier — shown in the read-only "Your parcel" card.
+// Mirrors the canonical PARCEL_TIERS in the api repo (src/constants/index.ts).
+const TIER_INFO: Record<ParcelTier, { label: string; examples: string }> = {
+  xs: { label: 'Very Small', examples: 'phone, wallet, keys, small jewellery box' },
+  s:  { label: 'Small',      examples: 'shoebox, small handbag, paperback book stack' },
+  m:  { label: 'Medium',     examples: 'large handbag, board game, small kettle' },
+  l:  { label: 'Large',      examples: 'backpack, laptop bag with accessories, jacket in box' },
+  xl: { label: 'Extra Large',examples: 'large suitcase, big winter coat, small musical instrument' },
+};
+
 export default function CollectionMethods({ claim, venue: _venue, onCourierBooked, onSelfPickupConfirmed, onBack, onFlowChange }: CollectionMethodsProps) {
   const [selectedMethod, setSelectedMethod] = useState<'self_pickup' | 'parcel2go' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -37,12 +48,20 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
   const [itemValue, setItemValue] = useState<string>('');
   const [quotes, setQuotes] = useState<CourierQuote[]>([]);
   const [quotesLoaded, setQuotesLoaded] = useState(false);
-  const [selectedQuote, setSelectedQuote] = useState<CourierQuote | null>(null);
+  const [_selectedQuote, setSelectedQuote] = useState<CourierQuote | null>(null);
+  const [detailQuote, setDetailQuote] = useState<CourierQuote | null>(null);
+  const [filterServiceTypes, setFilterServiceTypes] = useState<Set<string>>(new Set());
+  const [filterDelivery, setFilterDelivery] = useState<Set<string>>(new Set());
+  const [filterPrinting, setFilterPrinting] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<'price' | 'delivery'>('price');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSelfPickupPayment, setShowSelfPickupPayment] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showCustomsForm, setShowCustomsForm] = useState(false);
+  const [customsData, setCustomsData] = useState<CustomsData | null>(null);
+  const [pendingBooking, setPendingBooking] = useState<{ quote: CourierQuote; coverExtra: CourierQuoteExtra | null; additionalExtras: CourierQuoteExtra[] } | null>(null);
   const [paymentQuote, setPaymentQuote] = useState<CourierQuote | null>(null);
   const [, setFeeBreakdown] = useState<{ courierCost: number; platformFee: number; total: number } | null>(null);
 
@@ -51,6 +70,10 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
     setError(null); setSuccess(null); setQuotes([]); setQuotesLoaded(false); setSelectedQuote(null);
     if (method === 'self_pickup') { setAddressFormData(null); setIsEditingAddress(false); setSubmittingAddress(false); setDeliveryAddress(''); }
   };
+
+  // Parcel dimensions are no longer captured here. The API derives them from
+  // the item's confirmed parcel_tier (set by venue staff at item creation).
+  const parcelTier: ParcelTier | undefined = claim.item?.parcel_tier;
 
   const handleGetQuotes = async () => {
     const parsedValue = parseFloat(itemValue);
@@ -64,14 +87,48 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
     finally { setLoading(false); }
   };
 
-  const handleBookCourier = async (quote: CourierQuote) => {
-    setError(null);
+  const proceedToPayment = async (quote: CourierQuote, coverExtra?: CourierQuoteExtra | null, additionalExtras?: CourierQuoteExtra[], customs?: CustomsData | null) => {
     try {
       setLoading(true);
+      const allChosen = [
+        ...(coverExtra ? [{ Type: coverExtra.type }] : []),
+        ...(additionalExtras ?? []).map(e => ({ Type: e.type })),
+      ];
+      const quoteWithExtra: CourierQuote = allChosen.length > 0
+        ? { ...quote, metadata: { ...quote.metadata, chosen_insurance_extras: allChosen } }
+        : quote;
       const breakdownRes = await customerApi.getCourierFeeBreakdown(claim.id, quote.price);
-      setFeeBreakdown(breakdownRes.data); setPaymentQuote(quote); setSelectedQuote(quote); setShowPayment(true);
+      setFeeBreakdown(breakdownRes.data);
+      setPaymentQuote(quoteWithExtra);
+      setSelectedQuote(quote);
+      setCustomsData(customs ?? null);
+      setShowPayment(true);
     } catch (err: unknown) { setError(getErrorMessage(err)); }
     finally { setLoading(false); }
+  };
+
+  const handleBookCourier = async (quote: CourierQuote, coverExtra?: CourierQuoteExtra | null, additionalExtras?: CourierQuoteExtra[]) => {
+    setError(null);
+    setDetailQuote(null);
+    if (quote.requires_customs) {
+      setPendingBooking({ quote, coverExtra: coverExtra ?? null, additionalExtras: additionalExtras ?? [] });
+      setShowCustomsForm(true);
+      return;
+    }
+    await proceedToPayment(quote, coverExtra, additionalExtras);
+  };
+
+  const handleCustomsSubmit = async (customs: CustomsData) => {
+    if (!pendingBooking) return;
+    setShowCustomsForm(false);
+    const { quote, coverExtra, additionalExtras } = pendingBooking;
+    setPendingBooking(null);
+    await proceedToPayment(quote, coverExtra, additionalExtras, customs);
+  };
+
+  const handleCustomsBack = () => {
+    setShowCustomsForm(false);
+    setPendingBooking(null);
   };
 
   const handlePaymentSuccess = (booking: BookingResult) => {
@@ -85,7 +142,12 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
 
   const getAddressFormInitialValue = (): Partial<AddressFormValues> => {
     if (isEditingAddress && addressFormData) return addressFormData;
-    return { fullName: claim.claimant?.full_name, email: claim.claimant?.email, phone: claim.claimant?.phone };
+    return {
+      fullName: claim.claimant?.full_name ?? '',
+      email:    claim.claimant?.email    ?? '',
+      phone:    claim.claimant?.phone    ?? '',
+      country:  'United Kingdom',
+    };
   };
 
   const handleAddressSubmit = (vals: AddressFormValues) => {
@@ -111,8 +173,35 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
   const parsedItemValue = parseFloat(itemValue);
   const isItemValueValid = !isNaN(parsedItemValue) && parsedItemValue > 0;
 
+  const deliverySpeed = (quote: CourierQuote): 'Fast' | 'Medium' | 'Slow' => {
+    // Use ISO estimated_delivery date when available
+    const isoDate = Date.parse(quote.estimated_delivery);
+    if (!isNaN(isoDate)) {
+      const diffDays = (isoDate - Date.now()) / (1000 * 60 * 60 * 24);
+      if (diffDays <= 1) return 'Fast';
+      if (diffDays <= 3) return 'Medium';
+      return 'Slow';
+    }
+    // Fallback: parse text label
+    const d = (quote.estimated_delivery_label ?? quote.estimated_delivery ?? '').toLowerCase();
+    const m = d.match(/(\d+)\s*(?:-\s*(\d+))?\s*(?:business\s*)?day/);
+    const days = m ? (m[2] ? (parseInt(m[1]) + parseInt(m[2])) / 2 : parseInt(m[1])) : null;
+    if (d.includes('same day') || d.includes('next day') || (days !== null && days <= 1)) return 'Fast';
+    if (days !== null && days <= 3) return 'Medium';
+    return 'Slow';
+  };
+
+  const deliveryTypeIcon = (type?: string): { icon: string; label: string } => {
+    const t = (type ?? '').toLowerCase();
+    if (t.includes('door')) return { icon: 'home', label: 'Door delivery' };
+    if (t.includes('locker')) return { icon: 'lock', label: 'Locker pickup' };
+    if (t.includes('shop') || t.includes('store')) return { icon: 'storefront', label: 'Shop pickup' };
+    if (t.includes('post') || t.includes('office')) return { icon: 'markunread_mailbox', label: 'Post office' };
+    return { icon: 'local_shipping', label: type ?? 'Delivery' };
+  };
+
   // Derive collection flow step for the mini stepper
-  const flowStep = !selectedMethod ? 1 : (showPayment || showSelfPickupPayment) ? 3 : 2;
+  const flowStep = !selectedMethod ? 1 : (showPayment || showSelfPickupPayment) ? 3 : showCustomsForm ? 3 : 2;
 
   useEffect(() => {
     onFlowChange?.(selectedMethod !== null);
@@ -179,7 +268,7 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
               </div>
               <h3 className="font-headline text-lg font-bold text-primary mb-2">Direct Courier</h3>
               <p className="text-on-secondary-container text-sm mb-5 flex-grow">Secure tracked shipping with full insurance for long distances.</p>
-              <p className="font-headline text-2xl font-bold text-primary mb-1">&pound;{COURIER_STARTING_FROM.toFixed(2)} <span className="text-sm font-normal text-on-secondary-container">Starting from</span></p>
+              <p className="font-headline text-lg font-bold text-primary mb-1">UK & International</p>
               <div className="space-y-2 mb-5 mt-3">
                 <div className="flex items-center gap-2 text-xs text-on-secondary-container">
                   <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
@@ -298,7 +387,9 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
           <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
             <h3 className="font-headline text-xl font-bold text-primary mb-6">Delivery Details</h3>
             {(!addressFormData || isEditingAddress) && (
-              <CourierAddressForm stepNumber={1}
+              <CourierAddressForm
+                key={`${claim.claimant?.full_name}|${claim.claimant?.email}`}
+                stepNumber={1}
                 title="Courier delivery address"
                 submitting={submittingAddress} onSubmit={handleAddressSubmit} initialValue={getAddressFormInitialValue()} />
             )}
@@ -327,10 +418,33 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
                   </div>
                   <p className="text-xs text-on-secondary-container mt-1">Used for insurance purposes. Maximum &pound;{MAX_ITEM_VALUE.toLocaleString()}.</p>
                 </div>
-                <button onClick={handleGetQuotes} disabled={loading || !deliveryAddress.trim() || !isItemValueValid}
+
+                {/* Parcel size — read-only, sourced from item.parcel_tier
+                    (set by venue staff at item creation). Customer cannot edit. */}
+                {parcelTier && (
+                  <div className="rounded-xl bg-surface-container-low border border-outline-variant/20 p-4">
+                    <p className="text-xs uppercase tracking-wider text-outline mb-1">Your parcel</p>
+                    <p className="text-base font-headline font-bold text-on-surface">
+                      {TIER_INFO[parcelTier].label}
+                    </p>
+                    <p className="text-xs text-on-secondary-container mt-1">
+                      Roughly the size of: {TIER_INFO[parcelTier].examples}
+                    </p>
+                    <p className="text-xs text-on-secondary-container mt-2 italic">
+                      The venue has measured your item — no need to enter dimensions.
+                    </p>
+                  </div>
+                )}
+
+                <button onClick={handleGetQuotes} disabled={loading || !deliveryAddress.trim() || !isItemValueValid || !parcelTier}
                   className="w-full py-3.5 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                   {loading ? 'Getting Quotes...' : 'Get Delivery Quotes'}
                 </button>
+                {!parcelTier && (
+                  <p className="text-xs text-error text-center">
+                    Parcel size hasn&apos;t been confirmed by the venue yet — please contact them to update your item.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -358,29 +472,212 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
                 <span className="material-symbols-outlined text-on-tertiary-fixed-variant mt-0.5 text-sm">info</span>
                 <p className="text-sm text-on-tertiary-fixed-variant">A platform fee of <strong>&pound;{PLATFORM_FEE.toFixed(2)}</strong> applies to all claims.</p>
               </div>
-              <h4 className="font-headline font-bold text-primary">Available Delivery Options</h4>
-              {quotes.map((quote) => (
-                <div key={quote.id} onClick={() => setSelectedQuote(quote)}
-                  className={`bg-white rounded-2xl p-6 shadow-sm border cursor-pointer transition-all hover:shadow-md ${
-                    selectedQuote?.id === quote.id ? 'border-primary ring-1 ring-primary' : 'border-outline-variant/10'
-                  }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h5 className="font-headline font-bold text-primary">{quote.service}</h5>
-                      <p className="text-xs text-on-secondary-container mt-0.5">{quote.estimated_delivery}</p>
-                    </div>
-                    <p className="font-headline text-2xl font-bold text-primary">&pound;{(quote.price + PLATFORM_FEE).toFixed(2)}</p>
+
+              <div className="flex gap-6 items-start">
+                {/* ── Filter panel ── */}
+                <div className="w-52 shrink-0 bg-white rounded-2xl border border-outline-variant/10 shadow-sm p-4 space-y-5">
+                  <p className="font-headline font-bold text-on-surface text-sm">
+                    Filter
+                    {(filterServiceTypes.size + filterDelivery.size + filterPrinting.size) > 0 && (
+                      <span className="ml-1.5 text-[11px] font-normal text-surface-tint">
+                        ({filterServiceTypes.size + filterDelivery.size + filterPrinting.size} applied)
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Sort */}
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-outline block mb-1.5">Sort By</label>
+                    <select
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value as 'price' | 'delivery')}
+                      className="w-full text-sm border border-outline-variant/20 rounded-lg px-3 py-2 bg-surface-container-low text-on-surface focus:outline-none focus:border-primary">
+                      <option value="price">Price</option>
+                      <option value="delivery">Est. Delivery</option>
+                    </select>
                   </div>
-                  <div className="text-xs text-on-secondary-container space-y-0.5 mb-3">
-                    <p>Courier: &pound;{quote.price.toFixed(2)} + Platform fee: &pound;{PLATFORM_FEE.toFixed(2)}</p>
-                  </div>
-                  <p className="text-on-secondary-container text-sm mb-4">{quote.description}</p>
-                  <button onClick={(e) => { e.stopPropagation(); handleBookCourier(quote); }} disabled={loading}
-                    className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all disabled:opacity-50">
-                    {loading && selectedQuote?.id === quote.id ? 'Loading...' : 'Book & Pay'}
-                  </button>
+
+                  {/* Service Options */}
+                  <FilterGroup
+                    title="Service Options"
+                    options={[
+                      { value: 'Collection', label: 'Collection services' },
+                      { value: 'Shop',       label: 'Drop off services' },
+                      { value: 'Locker',     label: 'Locker services' },
+                    ]}
+                    selected={filterServiceTypes}
+                    onChange={setFilterServiceTypes}
+                  />
+
+                  {/* Estimated Delivery */}
+                  <FilterGroup
+                    title="Estimated Delivery"
+                    options={[
+                      { value: 'Fast',   label: 'Express 1–2 Day' },
+                      { value: 'Medium', label: 'Economy 3 Day+' },
+                      { value: 'Slow',   label: 'Super Economy 5 Day+' },
+                    ]}
+                    selected={filterDelivery}
+                    onChange={setFilterDelivery}
+                  />
+
+                  {/* Label Printing */}
+                  <FilterGroup
+                    title="Label Printing"
+                    options={[
+                      { value: 'not_required', label: 'Print own labels' },
+                      { value: 'required',     label: 'Print labels in-store' },
+                    ]}
+                    selected={filterPrinting}
+                    onChange={setFilterPrinting}
+                  />
+
+                  {(filterServiceTypes.size + filterDelivery.size + filterPrinting.size) > 0 && (
+                    <button
+                      onClick={() => { setFilterServiceTypes(new Set()); setFilterDelivery(new Set()); setFilterPrinting(new Set()); }}
+                      className="text-xs text-surface-tint hover:underline font-medium">
+                      Clear all filters
+                    </button>
+                  )}
                 </div>
-              ))}
+
+                {/* ── Quotes ── */}
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-headline font-bold text-primary">Available Delivery Options</h4>
+                    <p className="text-xs text-on-secondary-container">
+                      {[...quotes].filter(q => {
+                        if (filterServiceTypes.size > 0 && !filterServiceTypes.has(q.collection_type)) return false;
+                        if (filterDelivery.size > 0 && !filterDelivery.has(deliverySpeed(q))) return false;
+                        if (filterPrinting.size > 0) {
+                          const need = q.is_printer_required ? 'required' : 'not_required';
+                          if (!filterPrinting.has(need)) return false;
+                        }
+                        return true;
+                      }).length} services
+                    </p>
+                  </div>
+              {[...quotes]
+                .sort((a, b) => sortBy === 'price'
+                  ? a.price - b.price
+                  : Date.parse(a.estimated_delivery) - Date.parse(b.estimated_delivery))
+                .filter((q) => {
+                  if (filterServiceTypes.size > 0 && !filterServiceTypes.has(q.collection_type)) return false;
+                  if (filterDelivery.size > 0 && !filterDelivery.has(deliverySpeed(q))) return false;
+                  if (filterPrinting.size > 0) {
+                    const need = q.is_printer_required ? 'required' : 'not_required';
+                    if (!filterPrinting.has(need)) return false;
+                  }
+                  return true;
+                })
+                .map((quote) => {
+                  const etaDate = new Date(quote.estimated_delivery);
+                  const etaLabel = isNaN(etaDate.getTime())
+                    ? quote.estimated_delivery_label
+                    : etaDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+
+                  const cutoffDate = new Date(quote.cutoff);
+                  const cutoffToday = !isNaN(cutoffDate.getTime()) &&
+                    cutoffDate.toDateString() === new Date().toDateString();
+                  const cutoffLabel = cutoffToday
+                    ? `Book by ${cutoffDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} today`
+                    : null;
+
+                  const { icon, label } = deliveryTypeIcon(quote.delivery_type);
+
+                  return (
+                    <div key={quote.id}
+                      className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+
+                      {/* Printer badge */}
+                      <div className="flex justify-end px-4 pt-3 pb-0">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
+                          quote.is_printer_required
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-surface-container-high text-on-secondary-container'
+                        }`}>
+                          <span className="material-symbols-outlined text-sm">{quote.is_printer_required ? 'print' : 'print_disabled'}</span>
+                          {quote.is_printer_required ? 'Printer Needed' : 'Printer Not Needed'}
+                        </span>
+                      </div>
+
+                      {/* Main row */}
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        {/* Logo */}
+                        {quote.logo_url ? (
+                          <Image src={quote.logo_url} alt={quote.service} width={48} height={48} className="object-contain rounded-lg shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-primary text-2xl">local_shipping</span>
+                          </div>
+                        )}
+
+                        {/* Name */}
+                        <p className="flex-1 min-w-0 font-headline font-bold text-on-surface leading-tight truncate">
+                          {quote.service}
+                        </p>
+                      </div>
+
+                      {/* Detail bar */}
+                      <div className="border-t border-outline-variant/10 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+
+                        {/* Collection type */}
+                        <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
+                          <span className="material-symbols-outlined text-sm text-surface-tint">{icon}</span>
+                          <span>{label}</span>
+                        </div>
+
+                        {/* Est delivery */}
+                        {etaLabel && (
+                          <div className="flex items-center gap-1.5 text-xs text-on-secondary-container">
+                            <span className="material-symbols-outlined text-sm text-surface-tint">calendar_today</span>
+                            <div>
+                              <p className="font-medium text-on-surface">Est Delivery</p>
+                              <p>{etaLabel}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Speed chip */}
+                        <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-[11px] font-bold text-on-secondary-container">
+                          {quote.estimated_delivery_label || deliverySpeed(quote)}
+                        </span>
+
+                        {cutoffLabel && (
+                          <span className="text-[11px] font-medium text-amber-600">{cutoffLabel}</span>
+                        )}
+
+                        {/* Price + Proceed button */}
+                        <div className="ml-auto flex items-center gap-3 flex-wrap justify-end">
+                          <p className="font-headline text-lg font-bold text-primary whitespace-nowrap">
+                            from &pound;{(quote.price + PLATFORM_FEE).toFixed(2)}
+                          </p>
+                          <button
+                            onClick={() => setDetailQuote(quote)}
+                            className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors whitespace-nowrap">
+                            Proceed to Book
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                </div>{/* end quotes column */}
+              </div>{/* end filter+quotes row */}
+            </div>
+          )}
+
+          {/* Customs declaration */}
+          {showCustomsForm && pendingBooking && (
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10 space-y-4">
+              <h3 className="font-headline text-xl font-bold text-primary">Customs Declaration</h3>
+              <CustomsForm
+                initialItemDescription={claim.item?.title || claim.item?.description}
+                initialItemValue={parseFloat(itemValue) || 0}
+                tariffCodeRequired={pendingBooking.quote.tariff_code_required}
+                onSubmit={handleCustomsSubmit}
+                onBack={handleCustomsBack}
+              />
             </div>
           )}
 
@@ -388,11 +685,454 @@ export default function CollectionMethods({ claim, venue: _venue, onCourierBooke
           {showPayment && paymentQuote && (
             <div className="space-y-4">
               <h4 className="font-headline font-bold text-primary">Complete Payment</h4>
-              <CourierPayment claimId={claim.id} quote={paymentQuote} onPaymentSuccess={handlePaymentSuccess} onCancel={handlePaymentCancel} />
+              <CourierPayment
+                claimId={claim.id}
+                quote={paymentQuote}
+                customsData={customsData ?? undefined}
+                onPaymentSuccess={handlePaymentSuccess}
+                onCancel={handlePaymentCancel}
+              />
             </div>
           )}
         </div>
       )}
+    {/* Modal rendered at root level to avoid stacking context clipping */}
+    {detailQuote && (
+      <CourierDetailModal
+        quote={detailQuote}
+        onBook={handleBookCourier}
+        onClose={() => setDetailQuote(null)}
+      />
+    )}
+    </div>
+  );
+}
+
+// ─── Filter Group ────────────────────────────────────────────────────────────
+
+function FilterGroup({
+  title,
+  options,
+  selected,
+  onChange,
+}: {
+  title: string;
+  options: { value: string; label: string }[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+}) {
+  const toggle = (value: string) => {
+    const next = new Set(selected);
+    if (next.has(value)) { next.delete(value); } else { next.add(value); }
+    onChange(next);
+  };
+  return (
+    <div>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">{title}</p>
+      <div className="space-y-2">
+        {options.map(({ value, label }) => (
+          <label key={value} className="flex items-center gap-2.5 cursor-pointer group">
+            <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+              selected.has(value)
+                ? 'bg-primary border-primary'
+                : 'border-outline-variant/40 group-hover:border-primary/50'
+            }`}>
+              {selected.has(value) && (
+                <span className="material-symbols-outlined text-white text-[12px]">check</span>
+              )}
+            </span>
+            <input type="checkbox" className="sr-only" checked={selected.has(value)} onChange={() => toggle(value)} />
+            <span className="text-sm text-on-surface">{label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Courier Detail Modal ────────────────────────────────────────────────────
+
+interface CourierDetailModalProps {
+  quote: CourierQuote;
+  onBook: (quote: CourierQuote, cover?: CourierQuoteExtra | null, extras?: CourierQuoteExtra[]) => void;
+  onClose: () => void;
+}
+
+const EXTRA_META: Record<string, { name: string; desc: string; icon: string }> = {
+  Signature:         { name: 'Signature on delivery',      desc: 'Recipient must sign when the parcel arrives',                         icon: 'draw' },
+  PrintInStore:      { name: 'Print label in store',       desc: 'Print your label at the drop-off point — no home printer needed',      icon: 'print' },
+  DriverBringsLabel: { name: 'Driver prints your label',   desc: 'The driver will bring and attach a pre-printed label on collection',   icon: 'local_shipping' },
+  Sms:               { name: 'SMS delivery notification',  desc: 'Recipient gets a text message with delivery updates',                  icon: 'sms' },
+  DeliveryGuarantee: { name: 'Delivery guarantee',         desc: 'Money-back guarantee if your parcel is not delivered on time',         icon: 'verified' },
+  Cover:             { name: 'Full protection',            desc: 'Covers up to your full declared item value',                           icon: 'shield' },
+  ExtendedBaseCover: { name: 'Standard protection',        desc: 'Fixed protection included with this service',                          icon: 'verified_user' },
+};
+
+const DROP_OFF_NAMES: Record<string, string> = {
+  ROYALMAIL: 'Royal Mail Post Office',
+  EVRI:      'Evri ParcelShop',
+  DPD:       'DPD Pickup Shop',
+  UPS:       'UPS Access Point',
+  INPOST:    'InPost Locker',
+};
+
+function extraMeta(type: string) {
+  return EXTRA_META[type] ?? { name: type, desc: '', icon: 'add_circle' };
+}
+
+function CourierDetailModal({ quote, onBook, onClose }: CourierDetailModalProps) {
+  const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set());
+  const [booking, setBooking] = useState(false);
+
+  const coverExtras = quote.available_extras.filter(
+    (e) => e.type === 'Cover' || e.type === 'ExtendedBaseCover',
+  );
+  const otherExtras = quote.available_extras.filter(
+    (e) => e.type !== 'Cover' && e.type !== 'ExtendedBaseCover',
+  );
+  const cheapestCover = [...coverExtras].sort((a, b) => a.total - b.total)[0] ?? null;
+
+  // null = no extra protection chosen; undefined sentinel not used — null means "basic only"
+  const [selectedCover, setSelectedCover] = useState<CourierQuoteExtra | null>(cheapestCover);
+
+  const toggleExtra = (type: string) => {
+    setSelectedExtras(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) { next.delete(type); } else { next.add(type); }
+      return next;
+    });
+  };
+
+  const chosenExtras = otherExtras.filter(e => selectedExtras.has(e.type));
+  const extrasCost = chosenExtras.reduce((sum, e) => sum + e.total, 0);
+
+  const etaDate = new Date(quote.estimated_delivery);
+  const etaLabel = isNaN(etaDate.getTime())
+    ? quote.estimated_delivery_label
+    : etaDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const isInternational = quote.requires_customs ||
+    quote.tariff_code_required ||
+    quote.recipient_tax_id_requirements != null ||
+    quote.sender_tax_id_requirements != null ||
+    quote.sender_eori_requirements != null ||
+    quote.ioss_requirements != null ||
+    quote.recipient_eori_requirements != null;
+
+  const dropOffName = DROP_OFF_NAMES[quote.drop_off_provider ?? ''] ?? quote.drop_off_provider ?? null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}>
+
+        {/* ── Modal header ── */}
+        <div className="bg-surface-container-low px-5 py-4 flex items-center gap-3 shrink-0">
+          {quote.logo_url ? (
+            <Image src={quote.logo_url} alt={quote.service} width={40} height={40} className="object-contain rounded-lg shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-headline font-bold text-on-surface leading-tight">{quote.service}</p>
+            {dropOffName && (
+              <p className="text-xs text-on-secondary-container mt-0.5">Drop off at {dropOffName}</p>
+            )}
+          </div>
+          <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full shrink-0 ${
+            quote.is_printer_required ? 'bg-amber-50 text-amber-700' : 'bg-white text-on-secondary-container border border-outline-variant/20'
+          }`}>
+            <span className="material-symbols-outlined text-sm">{quote.is_printer_required ? 'print' : 'print_disabled'}</span>
+            {quote.is_printer_required ? 'Printer Needed' : 'Printer Not Needed'}
+          </span>
+          <button onClick={onClose} className="ml-1 text-outline hover:text-on-surface transition-colors shrink-0">
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        {/* ── Scrollable body ── */}
+        <div className="overflow-y-auto flex-1 min-h-0 px-5 py-4 space-y-5 overscroll-contain">
+
+          {/* Service summary */}
+          <div className="grid grid-cols-2 gap-3">
+            {etaLabel && (
+              <div className="bg-surface-container-low rounded-xl p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Est. Delivery</p>
+                <p className="text-sm font-bold text-on-surface">{etaLabel}</p>
+              </div>
+            )}
+            <div className="bg-surface-container-low rounded-xl p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Service Type</p>
+              <p className="text-sm font-bold text-on-surface capitalize">{quote.collection_type} · {quote.delivery_type}</p>
+            </div>
+            {quote.estimated_delivery_label && (
+              <div className="bg-surface-container-low rounded-xl p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Speed</p>
+                <p className="text-sm font-bold text-on-surface">{quote.estimated_delivery_label}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Price breakdown */}
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">Price Breakdown</p>
+            <div className="bg-surface-container-low rounded-xl divide-y divide-outline-variant/10">
+              <div className="flex justify-between px-4 py-2.5 text-sm">
+                <span className="text-on-secondary-container">Courier cost (ex. VAT)</span>
+                <span className="font-medium text-on-surface">&pound;{quote.price_ex_vat.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5 text-sm">
+                <span className="text-on-secondary-container">VAT ({quote.vat_rate}%)</span>
+                <span className="font-medium text-on-surface">&pound;{quote.vat.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5 text-sm">
+                <span className="text-on-secondary-container">Vfetch platform fee</span>
+                <span className="font-medium text-on-surface">&pound;{PLATFORM_FEE.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5 text-sm font-bold">
+                <span className="text-on-surface">Total</span>
+                <span className="text-primary">&pound;{(quote.price + PLATFORM_FEE).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Protection */}
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">Protection</p>
+            <div className="space-y-2">
+              {/* No extra protection option */}
+              <div role="radio" aria-checked={selectedCover === null} tabIndex={-1}
+                onClick={() => setSelectedCover(null)}
+                className={`flex gap-3 p-3 rounded-xl border cursor-pointer transition-colors outline-none ${
+                  selectedCover === null ? 'border-primary bg-primary/5' : 'border-outline-variant/20 hover:bg-surface-container-low'
+                }`}>
+                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                  selectedCover === null ? 'border-primary' : 'border-outline-variant/40'
+                }`}>
+                  {selectedCover === null && <span className="w-2 h-2 rounded-full bg-primary block" />}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-on-surface">No additional protection</p>
+                    <span className="text-sm font-bold text-emerald-600 shrink-0">Free</span>
+                  </div>
+                  <p className="text-xs text-on-secondary-container mt-0.5">
+                    Standard courier liability only — covers up to £{quote.included_cover}. No compensation for loss or damage beyond this amount.
+                  </p>
+                </div>
+              </div>
+
+              {/* Cover extras as radio options */}
+              {coverExtras.map(extra => {
+                const isSelected = selectedCover?.type === extra.type;
+                const isFull = extra.type === 'Cover';
+                const coverLimit = isFull ? quote.max_cover : quote.included_cover;
+                const bullets = isFull
+                  ? [
+                      `Covers up to £${coverLimit} — your full declared item value`,
+                      'Protects against loss, damage, and theft in transit',
+                      'Claim directly through Parcel2Go if something goes wrong',
+                    ]
+                  : [
+                      `Fixed cover up to £${coverLimit}`,
+                      'Protects against loss or damage in transit',
+                      'Suitable for lower-value items',
+                    ];
+                return (
+                  <div key={extra.type} role="radio" aria-checked={isSelected} tabIndex={-1}
+                    onClick={() => setSelectedCover(extra)}
+                    className={`flex gap-3 p-3 rounded-xl border cursor-pointer transition-colors outline-none ${
+                      isSelected ? 'border-primary bg-primary/5' : 'border-outline-variant/20 hover:bg-surface-container-low'
+                    }`}>
+                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                      isSelected ? 'border-primary' : 'border-outline-variant/40'
+                    }`}>
+                      {isSelected && <span className="w-2 h-2 rounded-full bg-primary block" />}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-on-surface">
+                          {isFull ? 'Full protection' : 'Standard protection'}
+                        </p>
+                        <span className="text-sm font-bold text-on-surface shrink-0">
+                          {extra.total === 0 ? 'Free' : `+£${extra.total.toFixed(2)}`}
+                        </span>
+                      </div>
+                      <ul className="mt-1 space-y-0.5">
+                        {bullets.map(b => (
+                          <li key={b} className="flex items-start gap-1.5 text-xs text-on-secondary-container">
+                            <span className="material-symbols-outlined text-[13px] text-surface-tint mt-px shrink-0">check_circle</span>
+                            {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Other extras */}
+          {otherExtras.length > 0 && (
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">Available Extras</p>
+              <div className="space-y-1.5">
+                {otherExtras.map(extra => {
+                  const m = extraMeta(extra.type);
+                  const isIncluded = extra.total === 0;
+                  const checked = selectedExtras.has(extra.type);
+                  if (isIncluded) {
+                    return (
+                      <div key={extra.type} className="flex items-center gap-3 p-3 rounded-xl border border-outline-variant/20 bg-surface-container-low/40">
+                        <span className="material-symbols-outlined text-sm text-surface-tint">{m.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-on-surface">{m.name}</p>
+                          {m.desc && <p className="text-xs text-on-secondary-container">{m.desc}</p>}
+                        </div>
+                        <span className="text-xs font-bold text-emerald-600 shrink-0">Included</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={extra.type} role="checkbox" aria-checked={checked} tabIndex={-1}
+                      onClick={() => toggleExtra(extra.type)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors outline-none ${
+                        checked ? 'border-primary bg-primary/5' : 'border-outline-variant/20 hover:bg-surface-container-low'
+                      }`}>
+                      <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                        checked ? 'bg-primary border-primary' : 'border-outline-variant/40'
+                      }`}>
+                        {checked && <span className="material-symbols-outlined text-white text-[12px]">check</span>}
+                      </span>
+                      <span className="material-symbols-outlined text-sm text-surface-tint">{m.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-on-surface">{m.name}</p>
+                        {m.desc && <p className="text-xs text-on-secondary-container">{m.desc}</p>}
+                      </div>
+                      <span className="text-sm font-bold text-on-surface shrink-0">+£{extra.total.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* About */}
+          {quote.service_description && (
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">About This Service</p>
+              <p className="text-sm text-on-secondary-container leading-relaxed">{quote.service_description}</p>
+            </div>
+          )}
+
+          {/* Max parcel size */}
+          {(quote.max_dimensions.weight > 0 || quote.max_dimensions.length > 0) && (
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">Max Parcel Size</p>
+              <div className="flex flex-wrap gap-2">
+                {quote.max_dimensions.weight > 0 && (
+                  <span className="px-3 py-1.5 bg-surface-container-low rounded-lg text-xs font-medium text-on-surface">
+                    Up to {quote.max_dimensions.weight} kg
+                  </span>
+                )}
+                {quote.max_dimensions.length > 0 && (
+                  <span className="px-3 py-1.5 bg-surface-container-low rounded-lg text-xs font-medium text-on-surface">
+                    {Math.round(quote.max_dimensions.length * 100)} × {Math.round(quote.max_dimensions.width * 100)} × {Math.round(quote.max_dimensions.height * 100)} cm
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* International requirements */}
+          {isInternational && (
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-outline mb-2">International Requirements</p>
+              <div className="space-y-1.5">
+                {quote.requires_customs && (
+                  <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                    <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+                    Customs declaration required
+                  </div>
+                )}
+                {quote.requires_commercial_invoice && (
+                  <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                    <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+                    Commercial invoice required
+                  </div>
+                )}
+                {quote.tariff_code_required && (
+                  <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                    <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+                    Tariff / HS code required
+                  </div>
+                )}
+                {quote.country_of_manufacture_required && (
+                  <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                    <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+                    Country of manufacture required
+                  </div>
+                )}
+                {quote.export_reason_required && (
+                  <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                    <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+                    Export reason required
+                  </div>
+                )}
+                {quote.ioss_requirements != null && (
+                  <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                    <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+                    IOSS number may be required
+                  </div>
+                )}
+                {(quote.sender_eori_requirements != null || quote.recipient_eori_requirements != null) && (
+                  <div className="flex items-center gap-2 text-sm text-on-secondary-container">
+                    <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+                    EORI number required
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Sticky footer ── */}
+        <div className="border-t border-outline-variant/10 px-5 py-4 shrink-0 space-y-3">
+          {(extrasCost > 0 || selectedCover) && (
+            <div className="flex flex-col gap-0.5 text-xs text-on-secondary-container">
+              {selectedCover && selectedCover.total > 0 && (
+                <div className="flex justify-between">
+                  <span>Protection ({extraMeta(selectedCover.type).name})</span>
+                  <strong className="text-on-surface">+£{selectedCover.total.toFixed(2)}</strong>
+                </div>
+              )}
+              {extrasCost > 0 && (
+                <div className="flex justify-between">
+                  <span>Selected extras</span>
+                  <strong className="text-on-surface">+£{extrasCost.toFixed(2)}</strong>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-on-surface border-t border-outline-variant/10 pt-1 mt-0.5">
+                <span>Total</span>
+                <span className="text-primary">
+                  £{(quote.price + PLATFORM_FEE + (selectedCover?.total ?? 0) + extrasCost).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => { setBooking(true); onBook(quote, selectedCover, chosenExtras); }}
+            disabled={booking}
+            className="w-full py-3 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+            {booking ? '...' : 'Book & Pay'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

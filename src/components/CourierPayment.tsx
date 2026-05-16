@@ -11,7 +11,7 @@ import { type Stripe as StripeType, type StripeError, type PaymentIntent } from 
 import { customerApi, getErrorMessage } from '@/lib/api';
 import { getStripe } from '@/lib/stripe';
 import ErrorBanner from '@/components/ErrorBanner';
-import { CourierQuote } from '@/types';
+import { CourierQuote, CustomsData } from '@/types';
 import { STRIPE_APPEARANCE, STRIPE_REDIRECT_MODE, STRIPE_SUCCESS_STATUS, STRIPE_UNEXPECTED_STATE_CODE } from '@/constants/stripe';
 
 interface FeeBreakdown {
@@ -24,6 +24,8 @@ interface FeeBreakdown {
 interface CourierPaymentProps {
   claimId: string;
   quote: CourierQuote;
+  chosenInsuranceExtras?: Array<{ Type: string }>;
+  customsData?: CustomsData;
   onPaymentSuccess: (booking: {
     booking_id: string;
     tracking_number: string;
@@ -34,10 +36,12 @@ interface CourierPaymentProps {
 }
 
 function CheckoutForm({
-  claimId, quote, breakdown, paymentIntentId: _paymentIntentId, onPaymentSuccess, onCancel,
+  claimId, quote, chosenInsuranceExtras, customsData, breakdown, paymentIntentId: _paymentIntentId, onPaymentSuccess, onCancel,
 }: {
   claimId: string;
   quote: CourierQuote;
+  chosenInsuranceExtras?: Array<{ Type: string }>;
+  customsData?: CustomsData;
   breakdown: FeeBreakdown;
   paymentIntentId: string;
   onPaymentSuccess: CourierPaymentProps['onPaymentSuccess'];
@@ -67,7 +71,7 @@ function CheckoutForm({
       const pi = (stripeError as StripeError & { payment_intent?: PaymentIntent })?.payment_intent;
       if (stripeError && stripeError.code === STRIPE_UNEXPECTED_STATE_CODE && pi?.status === 'succeeded') {
         const succeededPiId = pi.id;
-        const result = await customerApi.confirmCourierBooking(claimId, succeededPiId, quote.id, quote);
+        const result = await customerApi.confirmCourierBooking(claimId, succeededPiId, quote.id, quote, chosenInsuranceExtras, customsData);
         setBookingData(result.data); setSucceeded(true); onPaymentSuccess(result.data);
         return;
       }
@@ -85,7 +89,7 @@ function CheckoutForm({
         return;
       }
 
-      const result = await customerApi.confirmCourierBooking(claimId, paymentIntent.id, quote.id, quote);
+      const result = await customerApi.confirmCourierBooking(claimId, paymentIntent.id, quote.id, quote, chosenInsuranceExtras, customsData);
       setBookingData(result.data); setSucceeded(true); onPaymentSuccess(result.data);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -125,6 +129,19 @@ function CheckoutForm({
     );
   }
 
+  const chosenTypes = new Set((quote.metadata?.chosen_insurance_extras ?? []).map(e => e.Type));
+  const chosenExtras = (quote.available_extras ?? []).filter(e => chosenTypes.has(e.type));
+  const extraLabels: Record<string, string> = {
+    Cover: 'Full protection',
+    ExtendedBaseCover: 'Standard protection',
+    PrintInStore: 'Print label in store',
+    Signature: 'Signature on delivery',
+    SmsNotification: 'SMS notification',
+    DeliveryGuarantee: 'Delivery guarantee',
+  };
+  const extrasCost = chosenExtras.reduce((s, e) => s + e.total, 0);
+  const displayTotal = breakdown.courierCost + extrasCost + breakdown.platformFee;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Order Summary */}
@@ -138,6 +155,12 @@ function CheckoutForm({
             <span>{quote.service}</span>
             <span>&pound;{breakdown.courierCost.toFixed(2)}</span>
           </div>
+          {chosenExtras.map(e => (
+            <div key={e.type} className="flex justify-between text-on-secondary-container">
+              <span>{extraLabels[e.type] ?? e.type}</span>
+              <span>+&pound;{e.total.toFixed(2)}</span>
+            </div>
+          ))}
           <div className="flex justify-between text-on-secondary-container">
             <span className="flex items-center gap-1">
               <span className="material-symbols-outlined text-sm">shield</span>
@@ -148,7 +171,7 @@ function CheckoutForm({
           <div className="h-[1px] bg-outline-variant/20" />
           <div className="flex justify-between font-headline font-bold text-primary text-base">
             <span>Total</span>
-            <span>&pound;{breakdown.total.toFixed(2)}</span>
+            <span>&pound;{displayTotal.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -176,7 +199,7 @@ function CheckoutForm({
               Processing...
             </span>
           ) : (
-            `Pay £${breakdown.total.toFixed(2)}`
+            `Pay £${displayTotal.toFixed(2)}`
           )}
         </button>
       </div>
@@ -188,7 +211,7 @@ function CheckoutForm({
   );
 }
 
-export default function CourierPayment({ claimId, quote, onPaymentSuccess, onCancel }: CourierPaymentProps) {
+export default function CourierPayment({ claimId, quote, chosenInsuranceExtras, customsData, onPaymentSuccess, onCancel }: CourierPaymentProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -244,7 +267,7 @@ export default function CourierPayment({ claimId, quote, onPaymentSuccess, onCan
 
   return (
     <Elements stripe={stripeInstance} options={{ clientSecret, appearance: STRIPE_APPEARANCE }}>
-      <CheckoutForm claimId={claimId} quote={quote} breakdown={breakdown} paymentIntentId={paymentIntentId} onPaymentSuccess={onPaymentSuccess} onCancel={onCancel} />
+      <CheckoutForm claimId={claimId} quote={quote} chosenInsuranceExtras={chosenInsuranceExtras} customsData={customsData} breakdown={breakdown} paymentIntentId={paymentIntentId} onPaymentSuccess={onPaymentSuccess} onCancel={onCancel} />
     </Elements>
   );
 }

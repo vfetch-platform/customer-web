@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_TIMEOUT_MS, API_MAX_RETRIES, API_RETRY_DELAY_MS, ERROR_MESSAGES } from '@/constants/api';
-import { CourierQuote } from '@/types';
+import { CourierQuote, CustomsData } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -176,8 +176,14 @@ export const customerApi = {
     return response.data;
   },
 
-  // Get courier quotes
-  getCourierQuotes: async (claimId: string, deliveryAddress: string, itemValue: number) => {
+  // Get courier quotes. Parcel dimensions are no longer customer-supplied —
+  // the API derives them from the item's confirmed parcel_tier (set by venue
+  // staff at item creation).
+  getCourierQuotes: async (
+    claimId: string,
+    deliveryAddress: string,
+    itemValue: number,
+  ) => {
     const response = await api.post(`/courier/claims/${claimId}/courier-quotes`, {
       deliveryAddress,
       itemValue,
@@ -218,11 +224,20 @@ export const customerApi = {
   },
 
   // Confirm courier booking after Stripe payment succeeds
-  confirmCourierBooking: async (claimId: string, paymentIntentId: string, quoteId: string, quote: CourierQuote) => {
+  confirmCourierBooking: async (
+    claimId: string,
+    paymentIntentId: string,
+    quoteId: string,
+    quote: CourierQuote,
+    chosenInsuranceExtras?: Array<{ Type: string }>,
+    customsData?: CustomsData,
+  ) => {
     const response = await api.post(`/courier/claims/${claimId}/confirm-courier-booking`, {
       paymentIntentId,
       quoteId,
       quote,
+      ...(chosenInsuranceExtras && chosenInsuranceExtras.length > 0 && { chosenInsuranceExtras }),
+      ...(customsData && { customsData }),
     });
     return response.data;
   },
