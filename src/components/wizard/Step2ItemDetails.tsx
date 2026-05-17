@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { SearchFormData, ITEM_CATEGORIES, PHOTO_MAX_SIZE_BYTES, PHOTO_ACCEPTED_TYPES, PHOTO_MAX_COUNT } from '@/constants/search';
 import { isBelowHardMin, isBelowSoftMin, getMissingSuggestions } from '@/lib/validation';
 
@@ -137,6 +137,7 @@ export default function Step2ItemDetails({
           {/* Photo previews */}
           {formData.photos.map((photo, idx) => (
             <div key={idx} className="relative w-40 h-40 md:w-52 md:h-44 rounded-xl overflow-hidden group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={URL.createObjectURL(photo)}
                 alt={`Upload ${idx + 1}`}

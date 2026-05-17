@@ -30,7 +30,6 @@ export default function LostAndFoundPage() {
       setVenue(response.data);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
-      console.error('Error fetching venue:', err);
     } finally {
       setLoading(false);
     }
@@ -87,7 +86,7 @@ export default function LostAndFoundPage() {
 
       {/* Main Content */}
       <div>
-        {activeTab === 'search' && <SearchItems venue={venue} onSwitchTab={setActiveTab} />}
+        {activeTab === 'search' && <SearchItems venue={venue} />}
         {activeTab === 'status' && <ClaimStatus venue={venue} />}
         {activeTab === 'how' && (
           <main className="pt-28 pb-20 px-6 min-h-screen">

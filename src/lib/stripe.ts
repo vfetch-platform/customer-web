@@ -27,10 +27,8 @@ export async function getStripe(): Promise<StripeType | null> {
       stripePromise = loadStripe(key);
       return stripePromise;
     }
-    console.error('[Stripe] Backend returned empty Stripe publishable key');
     return null;
-  } catch (err) {
-    console.error('[Stripe] Failed to fetch Stripe config from backend:', err);
+  } catch {
     return null;
   }
 }

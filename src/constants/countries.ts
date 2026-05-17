@@ -1,8 +1,27 @@
 export const COUNTRIES = [
-  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France',
-  'Netherlands', 'Spain', 'Italy', 'Ireland', 'Sweden', 'Norway', 'Denmark',
-  'Belgium', 'Switzerland', 'Austria', 'Portugal', 'Greece', 'Poland',
-  'Czech Republic', 'Finland', 'New Zealand',
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Argentina', 'Armenia',
+  'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Belarus',
+  'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina', 'Botswana',
+  'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon',
+  'Canada', 'Cape Verde', 'Chad', 'Chile', 'China', 'Colombia', 'Congo', 'Costa Rica',
+  'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Denmark', 'Djibouti', 'Dominican Republic',
+  'Ecuador', 'Egypt', 'El Salvador', 'Estonia', 'Ethiopia', 'Fiji', 'Finland', 'France',
+  'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guatemala', 'Guinea',
+  'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland',
+  'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait',
+  'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Libya', 'Liechtenstein', 'Lithuania',
+  'Luxembourg', 'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta',
+  'Mauritania', 'Mauritius', 'Mexico', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro',
+  'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nepal', 'Netherlands', 'New Zealand',
+  'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+  'Pakistan', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines',
+  'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Senegal',
+  'Serbia', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Somalia', 'South Africa',
+  'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Switzerland',
+  'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Trinidad and Tobago',
+  'Tunisia', 'Turkey', 'Turkmenistan', 'Uganda', 'Ukraine', 'United Arab Emirates',
+  'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Venezuela', 'Vietnam',
+  'Yemen', 'Zambia', 'Zimbabwe',
 ] as const;
 
 export const PHONE_CODES: { code: string; label: string; country: string }[] = [
@@ -66,4 +85,32 @@ export const PHONE_CODES: { code: string; label: string; country: string }[] = [
   { code: '+57',  label: '+57',  country: 'Colombia' },
   { code: '+56',  label: '+56',  country: 'Chile' },
 ];
+
+/**
+ * Returns the expected dial code for a country name, or null if unknown.
+ * Used to validate that a phone number matches the selected delivery country.
+ */
+export function dialCodeForCountry(country: string): string | null {
+  if (!country) return null;
+  const normalised = country.trim().toLowerCase();
+  const match = PHONE_CODES.find(p => {
+    // Handle "United States / Canada" entry covering both
+    return p.country.toLowerCase().split(/\s*\/\s*/).some(n => n.trim() === normalised);
+  });
+  return match?.code ?? null;
+}
+
+/**
+ * Returns an error message if the phone number does not start with the
+ * expected dial code for the given country, or null if valid / unknown country.
+ */
+export function validatePhoneForCountry(phone: string, country: string): string | null {
+  const dialCode = dialCodeForCountry(country);
+  if (!dialCode) return null; // country not in our list — don't block submission
+  const digits = phone.replace(/[\s\-().]/g, '');
+  if (!digits.startsWith(dialCode)) {
+    return `Number must start with ${dialCode} for ${country}`;
+  }
+  return null;
+}
 

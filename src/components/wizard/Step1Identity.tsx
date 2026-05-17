@@ -1,8 +1,6 @@
 'use client';
 
-import React from 'react';
 import { SearchFormData } from '@/constants/search';
-import { PHONE_CODES } from '@/constants/countries';
 
 interface Step1IdentityProps {
   formData: SearchFormData;
@@ -58,27 +56,6 @@ export default function Step1Identity({ formData, fieldErrors, onInputChange, on
             {fieldErrors.email && <p className="text-xs text-error">{fieldErrors.email}</p>}
           </div>
 
-          <div className="flex flex-col gap-1.5 md:col-span-2">
-            <label htmlFor="phone" className="text-sm font-medium text-on-surface">Phone Number</label>
-            <div className="flex gap-2">
-              <div className="relative">
-                <select
-                  name="phoneCountryCode" value={formData.phoneCountryCode} onChange={onInputChange}
-                  className="bg-surface-container-low rounded-xl pl-3 pr-8 py-3.5 text-on-surface border border-outline-variant/20 focus:border-primary transition-colors w-32 appearance-none cursor-pointer"
-                >
-                  {PHONE_CODES.map((cc) => (
-                    <option key={cc.code} value={cc.code}>{cc.code} {cc.country}</option>
-                  ))}
-                </select>
-                <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-base pointer-events-none">expand_more</span>
-              </div>
-              <input
-                id="phone" name="phone" type="tel" value={formData.phone} onChange={onInputChange}
-                className="flex-1 bg-surface-container-low rounded-xl px-4 py-3.5 text-on-surface placeholder:text-outline/40 border border-outline-variant/20 focus:border-primary transition-colors"
-                placeholder="(555) 000-0000"
-              />
-            </div>
-          </div>
         </div>
       </section>
 

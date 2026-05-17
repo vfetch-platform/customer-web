@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Venue, Item } from '@/types';
 import { SearchFormData, DEFAULT_SEARCH_FORM_DATA } from '@/constants/search';
 import { STORAGE_KEY_SEARCH_FORM } from '@/constants/storage';
 import { EMAIL_REGEX } from '@/constants/regex';
-import { isBelowHardMin, isBelowSoftMin } from '@/lib/validation';
+import { isBelowHardMin } from '@/lib/validation';
 import { customerApi, getErrorMessage } from '@/lib/api';
 import { ProgressSteps } from '@/components/ProgressSteps';
 import Step1Identity from './Step1Identity';
@@ -16,7 +16,6 @@ import OTPModal from './OTPModal';
 
 interface WizardShellProps {
   venue: Venue;
-  onSwitchTab?: (tab: string) => void;
 }
 
 type WizardStep = 1 | 2 | 3 | 'results';
@@ -27,7 +26,7 @@ const WIZARD_STEPS = [
   { title: 'Review' },
 ];
 
-export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
+export default function WizardShell({ venue }: WizardShellProps) {
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const hasMountedWizardStepRef = useRef(false);
   const [formData, setFormData] = useState<SearchFormData>(() => {
@@ -62,7 +61,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
 
   // Persist form data (excluding photos which are not serializable)
   useEffect(() => {
-    const { photos, ...serializable } = formData;
+    const { photos: _photos, ...serializable } = formData;
     sessionStorage.setItem(STORAGE_KEY_SEARCH_FORM, JSON.stringify(serializable));
   }, [formData]);
 
@@ -209,14 +208,12 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
           photoUrls = await customerApi.uploadPhotos(formData.photos);
         } catch {
           // Photo upload failure is non-blocking
-          console.warn('Photo upload failed, continuing without photos');
         }
       }
 
       const queryResponse = await customerApi.createQuery({
         name: formData.name,
         email: formData.email,
-        phone: formData.phoneCountryCode + ' ' + formData.phone,
         location: formData.location,
         datesOfStay: { checkin: formData.checkinDate, checkout: formData.checkoutDate },
         bookingReference: formData.bookingReference || undefined,
@@ -224,6 +221,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
         venueId: venue.id,
         category: formData.category || undefined,
         photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
+        termsAccepted: true,
       });
 
       const newQueryId = queryResponse.data.id;
@@ -234,7 +232,6 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
       setMatchedItems(matchesResponse.data);
       setWizardStep('results');
     } catch (err: unknown) {
-      console.error('Error searching:', err);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -248,13 +245,12 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
     try {
       const response = await customerApi.createClaim(
         item.id,
-        { name: formData.name, email: formData.email, phone: formData.phone || undefined },
+        { name: formData.name, email: formData.email },
         { queryId }
       );
       setClaimId(response.data.id);
       sessionStorage.removeItem(STORAGE_KEY_SEARCH_FORM);
     } catch (err: unknown) {
-      console.error('Error creating claim:', err);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -276,10 +272,6 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
 
   const handleEditStep = (step: number) => {
     setWizardStep(step as 1 | 2);
-  };
-
-  const handleGoToTracking = () => {
-    if (onSwitchTab) onSwitchTab('status');
   };
 
   // Results view
@@ -309,7 +301,7 @@ export default function WizardShell({ venue, onSwitchTab }: WizardShellProps) {
       <div className="mb-2">
         <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-1">Find Your Lost Item</h1>
         <p className="text-on-secondary-container text-sm">
-          Step {currentStep} of 3 — Tell us about your item and we'll instantly search the venue's lost and found.
+          Step {currentStep} of 3 — Tell us about your item and we&apos;ll instantly search the venue&apos;s lost and found.
         </p>
       </div>
 

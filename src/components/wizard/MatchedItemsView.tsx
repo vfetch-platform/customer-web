@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import ErrorBanner from '@/components/ErrorBanner';
 import { Item } from '@/types';
-import { DESCRIPTION_TRUNCATION_THRESHOLD } from '@/constants/search';
+import { DESCRIPTION_TRUNCATION_THRESHOLD, HIGH_MATCH_SCORE_THRESHOLD, RECENT_LOSS_HOURS_THRESHOLD } from '@/constants/search';
 
 interface MatchedItemsViewProps {
   matchedItems: Item[];
@@ -92,7 +93,7 @@ export default function MatchedItemsView({
           const checkout = new Date(checkoutDate);
           const now = new Date();
           const hoursDiff = (now.getTime() - checkout.getTime()) / (1000 * 60 * 60);
-          return hoursDiff < 24;
+          return hoursDiff < RECENT_LOSS_HOURS_THRESHOLD;
         })();
         return (
           <div className="text-center py-20">
@@ -127,13 +128,13 @@ export default function MatchedItemsView({
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {matchedItems.map((item) => {
-              const matchScore = (item as any).match_score || (item as any).similarity_score;
-              const isHighMatch = matchScore && matchScore >= 90;
+              const matchScore = item.match_score ?? item.similarity_score;
+              const isHighMatch = matchScore !== undefined && matchScore >= HIGH_MATCH_SCORE_THRESHOLD;
               return (
                 <div key={item.id} className="group relative flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm border border-outline-variant/10 transition-all duration-300 hover:shadow-md hover:translate-y-[-2px]">
                   {item.images && item.images.length > 0 && (
                     <div className="relative h-64 overflow-hidden">
-                      <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      <Image src={item.images[0]} alt={item.title} fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
                       <button type="button" onClick={(e) => { e.stopPropagation(); openPhotoModal(item, 0); }}
                         className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-colors"
                         aria-label="View photos">
@@ -260,9 +261,9 @@ export default function MatchedItemsView({
             </div>
             <div className="relative bg-on-surface flex items-center justify-center" style={{ minHeight: '420px' }}>
               {photoModalItem.images?.map((img, idx) => (
-                <img key={idx} src={img}
+                <Image key={idx} src={img} fill
                   alt={`${photoModalItem.title} image ${idx + 1} of ${photoModalItem.images?.length}`}
-                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${idx === photoIndex ? 'opacity-100' : 'opacity-0'}`}
+                  className={`object-contain transition-opacity duration-500 ${idx === photoIndex ? 'opacity-100' : 'opacity-0'}`}
                   aria-hidden={idx !== photoIndex} />
               ))}
               {photoModalItem.images && photoModalItem.images.length > 1 && (

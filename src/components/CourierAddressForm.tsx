@@ -1,18 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import { COUNTRIES } from '@/constants/countries';
+import { useEffect, useRef, useState } from 'react';
+import { COUNTRIES, validatePhoneForCountry, dialCodeForCountry } from '@/constants/countries';
 import { EMAIL_REGEX } from '@/constants/regex';
-
-// Ambient declaration fallback if @types/google.maps isn't installed
-// (Consider installing: npm i -D @types/google.maps)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-declare global {
-  // Only declare if not already present
-  // eslint-disable-next-line no-var
-  // @ts-ignore
-  var google: any | undefined; // minimal for runtime usage
-}
 
 interface CourierAddressFormProps {
   stepNumber?: number;
@@ -21,6 +11,8 @@ interface CourierAddressFormProps {
   onSubmit: (values: AddressFormValues) => void;
   submitting?: boolean;
   hideStepIndicator?: boolean;
+  /** When true the email field is read-only — it comes from the verified claim identity. */
+  lockEmail?: boolean;
 }
 
 export interface AddressFormValues {
@@ -44,6 +36,7 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   onSubmit,
   submitting,
   hideStepIndicator,
+  lockEmail = false,
 }) => {
   const [values, setValues] = useState<AddressFormValues>({
     searchAddress: '',
@@ -61,10 +54,24 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Sync contact fields from initialValue if they arrive after mount (e.g. claim data loads late)
+  useEffect(() => {
+    if (!initialValue) return;
+    setValues(prev => ({
+      ...prev,
+      fullName: prev.fullName || initialValue.fullName || '',
+      email:    prev.email    || initialValue.email    || '',
+      phone:    prev.phone    || initialValue.phone    || '',
+      country:  prev.country  || initialValue.country  || '',
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [placesReady, setPlacesReady] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
   const autoInputRef = useRef<HTMLInputElement | null>(null);
-  const autoCompleteRef = useRef<any>(null);
+  const autoCompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   // Load Google Places script if API key present
   useEffect(() => {
@@ -72,20 +79,16 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
     const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!key) {
       setPlacesError('Google Maps API key not configured');
-      if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
-        console.warn('[CourierAddressForm] Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY');
-      }
       return;
     }
-    if ((window as any).google?.maps?.places) {
+    if (typeof google !== 'undefined' && google.maps?.places) {
       setPlacesReady(true);
       return;
     }
     const existing = document.querySelector<HTMLScriptElement>('script[data-google-places]');
     if (existing) {
       // Script tag exists — check if it already finished loading (e.g. React StrictMode remount)
-      if ((window as any).google?.maps?.places) {
+      if (typeof google !== 'undefined' && google.maps?.places) {
         setPlacesReady(true);
       } else {
         existing.addEventListener('load', () => setPlacesReady(true));
@@ -107,12 +110,11 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   useEffect(() => {
     if (!placesReady || !autoInputRef.current || autoCompleteRef.current) return;
     try {
-      if (!(window as any).google?.maps?.places) {
+      if (typeof google === 'undefined' || !google.maps?.places) {
         setPlacesError('Google Places library not available');
         return;
       }
-      // @ts-ignore
-      autoCompleteRef.current = new (window as any).google.maps.places.Autocomplete(autoInputRef.current!, {
+      autoCompleteRef.current = new google.maps.places.Autocomplete(autoInputRef.current!, {
         types: ['address'],
         fields: ['address_components', 'formatted_address', 'geometry'],
       });
@@ -120,7 +122,7 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
         const place = autoCompleteRef.current?.getPlace();
         if (!place?.address_components) return;
         const components: Record<string, string> = {};
-        place.address_components.forEach((c: any) => {
+        place.address_components.forEach((c: google.maps.GeocoderAddressComponent) => {
           c.types.forEach((t: string) => { components[t] = c.long_name; });
         });
         setValues(v => ({
@@ -136,8 +138,8 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
           autoInputRef.current.value = place.formatted_address;
         }
       });
-    } catch (e: any) {
-      setPlacesError(e?.message || 'Failed to initialise address autocomplete');
+    } catch (e: unknown) {
+      setPlacesError((e instanceof Error ? e.message : null) || 'Failed to initialise address autocomplete');
     }
   }, [placesReady]);
 
@@ -146,12 +148,16 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
   };
   const markTouched = (name: string) => setTouched(t => ({ ...t, [name]: true }));
 
-  const required: (keyof AddressFormValues)[] = ['country', 'address1', 'city', 'postalCode', 'fullName', 'phone', 'email'];
+  const required: (keyof AddressFormValues)[] = ['country', 'address1', 'city', 'postalCode', 'fullName', 'phone', ...(lockEmail ? [] : ['email' as const])];
   const errors: Record<string, string> = {};
   required.forEach(f => {
     if (!values[f]?.trim()) errors[f] = 'Required';
   });
-  if (values.email && !EMAIL_REGEX.test(values.email)) errors.email = 'Invalid email';
+  if (!lockEmail && values.email && !EMAIL_REGEX.test(values.email)) errors.email = 'Invalid email';
+  if (values.phone && values.country) {
+    const phoneErr = validatePhoneForCountry(values.phone, values.country);
+    if (phoneErr) errors.phone = phoneErr;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,28 +204,24 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
             />
           </div>
           <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Mobile Phone (Local mobile phone number)*</label>
-            <input
-              type="tel"
-              value={values.phone}
-              onChange={e => setField('phone', e.target.value)}
-              onBlur={() => markTouched('phone')}
-              placeholder={values.country ? `+ Local ${values.country} number` : '+30123456789'}
-              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.phone && touched.phone ? 'border-error' : 'border-outline-variant/30'}`}
-            />
-            <p className="mt-1 text-xs text-on-secondary-container">Local number to country of destination. <button type="button" className="text-surface-tint hover:underline">See why</button></p>
-            {errors.phone && touched.phone && <p className="mt-1 text-xs text-error">{errors.phone}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Email *</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">
+              Email *{lockEmail && <span className="ml-1.5 normal-case font-normal text-surface-tint">(from your claim)</span>}
+            </label>
             <input
               type="email"
               value={values.email}
-              onChange={e => setField('email', e.target.value)}
-              onBlur={() => markTouched('email')}
-              className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.email && touched.email ? 'border-error' : 'border-outline-variant/30'}`}
+              readOnly={lockEmail}
+              onChange={lockEmail ? undefined : e => setField('email', e.target.value)}
+              onBlur={lockEmail ? undefined : () => markTouched('email')}
+              className={`w-full rounded-lg border py-3 px-4 text-on-surface shadow-sm ${
+                lockEmail
+                  ? 'bg-surface-container-high border-outline-variant/20 text-on-secondary-container cursor-not-allowed select-none'
+                  : errors.email && touched.email
+                    ? 'bg-surface-container-low border-error focus:bg-white focus:border-surface-tint'
+                    : 'bg-surface-container-low border-outline-variant/30 focus:bg-white focus:border-surface-tint focus:ring-surface-tint'
+              }`}
             />
-            {errors.email && touched.email && <p className="mt-1 text-xs text-error">{errors.email}</p>}
+            {!lockEmail && errors.email && touched.email && <p className="mt-1 text-xs text-error">{errors.email}</p>}
           </div>
         </div>
       </div>
@@ -337,6 +339,21 @@ export const CourierAddressForm: React.FC<CourierAddressFormProps> = ({
             />
           </div>
         </div>
+      </div>
+
+      {/* Phone — after address so the country is visible and the local-number hint makes sense */}
+      <div>
+        <label className="text-xs font-bold uppercase tracking-wider text-outline px-1 block mb-1">Mobile Phone (Local mobile phone number)*</label>
+        <input
+          type="tel"
+          value={values.phone}
+          onChange={e => setField('phone', e.target.value)}
+          onBlur={() => markTouched('phone')}
+          placeholder={values.country ? `${dialCodeForCountry(values.country) ?? ''}XXXXXXXXX` : '+30123456789'}
+          className={`w-full rounded-lg border bg-surface-container-low py-3 px-4 text-on-surface focus:bg-white focus:border-surface-tint focus:ring-surface-tint shadow-sm ${errors.phone && touched.phone ? 'border-error' : 'border-outline-variant/30'}`}
+        />
+        <p className="mt-1 text-xs text-on-secondary-container">Must be a local number for the delivery country — the courier needs it to arrange delivery.</p>
+        {errors.phone && touched.phone && <p className="mt-1 text-xs text-error">{errors.phone}</p>}
       </div>
 
       <div className="pt-4">

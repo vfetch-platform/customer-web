@@ -11,6 +11,7 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.development
 
 # API Keys and Secrets (especially important for Parcel2Go integration)
 *.key

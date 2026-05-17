@@ -56,9 +56,9 @@ module.exports = {
         "on-tertiary-fixed-variant": "#005048",
       },
       fontFamily: {
-        "headline": ["DM Sans", "sans-serif"],
-        "body": ["DM Sans", "sans-serif"],
-        "label": ["DM Sans", "sans-serif"],
+        "headline": ["var(--font-dm-sans)", "DM Sans", "sans-serif"],
+        "body": ["var(--font-dm-sans)", "DM Sans", "sans-serif"],
+        "label": ["var(--font-dm-sans)", "DM Sans", "sans-serif"],
       },
       borderRadius: {
         "DEFAULT": "0.125rem",

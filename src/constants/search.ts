@@ -26,12 +26,12 @@ export const BRAND_EXCLUDED_WORDS: ReadonlySet<string> = new Set([
 ]);
 
 export const DESCRIPTION_TRUNCATION_THRESHOLD = 140;
+export const HIGH_MATCH_SCORE_THRESHOLD = 90;
+export const RECENT_LOSS_HOURS_THRESHOLD = 24;
 
 export interface SearchFormData {
   name: string;
   email: string;
-  phone: string;
-  phoneCountryCode: string;
   location: string;
   checkinDate: string;
   checkoutDate: string;
@@ -44,8 +44,6 @@ export interface SearchFormData {
 export const DEFAULT_SEARCH_FORM_DATA: SearchFormData = {
   name: '',
   email: '',
-  phone: '',
-  phoneCountryCode: '+1',
   location: '',
   checkinDate: '',
   checkoutDate: '',

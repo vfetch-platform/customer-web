@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, Fragment, useEffect, useRef, type FormEvent } from 'react';
+import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { customerApi } from '@/lib/api';
 import { Venue, Claim } from '@/types';
 import CollectionMethods from './CollectionMethods';
@@ -67,6 +69,7 @@ function getStatusSubtext(claim: Claim): string {
 }
 
 export default function ClaimStatus({ venue }: ClaimStatusProps) {
+  const searchParams = useSearchParams();
   const [claimId, setClaimId] = useState<string>(() =>
     typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY_CLAIM_ID) || '' : ''
   );
@@ -80,10 +83,63 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<ClaimStep>('search');
-  const [isCollectionFlowActive, setIsCollectionFlowActive] = useState(false);
   const [confirmationData, setConfirmationData] = useState<ConfirmationData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const stripeRecoveryRan = useRef(false);
+
+  // Recover from Stripe redirect (Revolut and other redirect-based payment methods).
+  // Stripe appends ?payment_intent=pi_xxx&redirect_status=succeeded after the user
+  // returns from the external payment page. We confirm the booking server-side
+  // (context was saved to DB at payment-intent creation) and show the confirmation step.
+  useEffect(() => {
+    const paymentIntent = searchParams.get('payment_intent');
+    const redirectStatus = searchParams.get('redirect_status');
+    const paymentType = searchParams.get('payment_type'); // 'courier' | 'self_pickup'
+    if (!paymentIntent || redirectStatus !== 'succeeded') return;
+    if (stripeRecoveryRan.current) return;
+    stripeRecoveryRan.current = true;
+
+    const storedClaimId = sessionStorage.getItem(STORAGE_KEY_CLAIM_ID);
+    if (!storedClaimId) return;
+
+    // Clean Stripe params from URL without triggering navigation
+    const clean = new URL(window.location.href);
+    ['payment_intent', 'payment_intent_client_secret', 'redirect_status', 'payment_type'].forEach(
+      p => clean.searchParams.delete(p),
+    );
+    window.history.replaceState(null, '', clean.toString());
+
+    setLoading(true);
+    (async () => {
+      try {
+        const claimRes = await customerApi.getClaimStatus(storedClaimId);
+        const restoredClaim: Claim = claimRes.data;
+        setClaim(restoredClaim);
+        setClaimId(storedClaimId);
+        sessionStorage.setItem(STORAGE_KEY_CLAIM_RESULT, JSON.stringify(restoredClaim));
+
+        if (paymentType === 'self_pickup') {
+          await customerApi.confirmSelfPickup(storedClaimId, paymentIntent);
+          const refreshed = await customerApi.getClaimStatus(storedClaimId);
+          const refreshedClaim: Claim = refreshed.data;
+          setClaim(refreshedClaim);
+          setConfirmationData({ type: 'self_pickup', pickupCode: refreshedClaim.pickup_code || '', paymentIntentId: paymentIntent });
+        } else {
+          const result = await customerApi.confirmCourierBooking(storedClaimId, paymentIntent);
+          const booking = result.data ?? result;
+          setConfirmationData({ type: 'courier', booking });
+        }
+        setStep('confirmation');
+      } catch {
+        setError('Payment received but booking confirmation failed. Please contact support with your payment reference: ' + paymentIntent);
+        setStep('details');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -91,7 +147,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
     setTimeout(() => setCopiedField(null), CLIPBOARD_FEEDBACK_MS);
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
     if (!claimId.trim()) { setError('Please enter a Claim ID.'); return; }
     setLoading(true);
@@ -101,11 +157,12 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
       setClaim(response.data);
       sessionStorage.setItem(STORAGE_KEY_CLAIM_RESULT, JSON.stringify(response.data));
       setStep('details');
-    } catch (err: any) {
-      const status = err.response?.status;
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number }; normalizedMessage?: string };
+      const status = e.response?.status;
       if (status === 400 || status === 422) setError('Invalid Claim ID format.');
       else if (status === 404) setError('Claim not found. Please check your ID.');
-      else setError(err.normalizedMessage || 'Something went wrong.');
+      else setError(e.normalizedMessage || 'Something went wrong.');
       setClaim(null);
     } finally { setLoading(false); }
   };
@@ -189,7 +246,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                   const isActive = i === currentIdx;
                   const highlightConnector = isComplete || isActive;
                   return (
-                    <React.Fragment key={s.key}>
+                    <Fragment key={s.key}>
                       {i > 0 && (
                         <div className={`flex-1 h-[2px] mt-5 mx-2 ${highlightConnector ? 'bg-primary' : 'bg-outline-variant/15'}`} />
                       )}
@@ -213,7 +270,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                           <p className="text-[10px] text-on-secondary-container mt-0.5">Estimated: Today</p>
                         )}
                       </div>
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </div>
@@ -227,11 +284,12 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
                   <h2 className="font-headline text-xl font-bold text-primary mb-5">Item Details</h2>
                   <div className="flex flex-col md:flex-row gap-6">
                     {claim.item.images && claim.item.images.length > 0 && (
-                      <div className="md:w-56 shrink-0">
-                        <img
+                      <div className="relative md:w-56 h-48 shrink-0">
+                        <Image
                           src={claim.item.images[0]}
                           alt={claim.item.title}
-                          className="w-full h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                          fill
+                          className="object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => setLightboxImage(claim.item!.images[0])}
                         />
                       </div>
@@ -297,19 +355,29 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
               </div>
             )}
 
-            {/* Collection Methods */}
+            {/* Collection Methods CTA */}
             {claim.status === 'approved' && claim.payment_status !== 'paid' && (
-              <CollectionMethods
-                claim={claim}
-                venue={venue}
-                onCourierBooked={handleCourierBooked}
-                onSelfPickupConfirmed={handleSelfPickupConfirmed}
-                onFlowChange={setIsCollectionFlowActive}
-              />
+              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-outline-variant/10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
+                  </div>
+                  <div>
+                    <h2 className="font-headline text-lg font-bold text-primary">Your item is ready</h2>
+                    <p className="text-on-secondary-container text-sm">Choose how you&apos;d like to receive it</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setStep('collection')}
+                  className="w-full py-3 bg-primary text-white rounded-full font-headline font-bold text-sm hover:bg-primary-container active:scale-95 transition-all"
+                >
+                  Choose Collection Method
+                </button>
+              </div>
             )}
 
             {/* Pickup code + venue map */}
-            {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
+            {claim.status === 'approved' && claim.payment_status === 'paid' && claim.collection_mode === 'self_pickup' && claim.pickup_code && (
               <div className="space-y-6">
                 <VenueReviewPrompt venue={venue} />
 
@@ -348,7 +416,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             )}
 
             {/* Review prompt — when item is ready for collection */}
-            {!isCollectionFlowActive && claim.status === 'approved' && claim.payment_status === 'paid' && !(claim.collection_mode === 'self_pickup' && claim.pickup_code) && (
+            {claim.status === 'approved' && claim.payment_status === 'paid' && !(claim.collection_mode === 'self_pickup' && claim.pickup_code) && (
               <VenueReviewPrompt venue={venue} />
             )}
 
@@ -489,7 +557,7 @@ export default function ClaimStatus({ venue }: ClaimStatusProps) {
             <button onClick={() => setLightboxImage(null)} className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg hover:bg-surface-container-low z-10">
               <span className="material-symbols-outlined text-2xl text-on-surface">close</span>
             </button>
-            <img src={lightboxImage} alt="Item" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
+            <Image src={lightboxImage} alt="Item" width={900} height={600} className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
           </div>
         </div>
       )}

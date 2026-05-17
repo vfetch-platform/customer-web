@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
 import { SearchFormData, ITEM_CATEGORIES } from '@/constants/search';
 
@@ -35,7 +34,7 @@ export default function Step3Review({
       <div className="text-center">
         <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary mb-2">Review &amp; Search</h1>
         <p className="text-on-secondary-container text-sm">
-          Please review the details below before we search the venue's lost and found.
+          Please review the details below before we search the venue&apos;s lost and found.
         </p>
       </div>
 
@@ -58,10 +57,6 @@ export default function Step3Review({
           <div>
             <p className="text-outline text-xs mb-0.5">Email</p>
             <p className="text-on-surface font-medium">{formData.email || '—'}</p>
-          </div>
-          <div>
-            <p className="text-outline text-xs mb-0.5">Phone</p>
-            <p className="text-on-surface font-medium">{formData.phone ? `${formData.phoneCountryCode} ${formData.phone}` : '—'}</p>
           </div>
         </div>
       </section>
@@ -123,6 +118,7 @@ export default function Step3Review({
               <div className="flex flex-wrap gap-3">
                 {formData.photos.map((photo, idx) => (
                   <div key={idx} className="w-20 h-20 rounded-lg overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={URL.createObjectURL(photo)} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}

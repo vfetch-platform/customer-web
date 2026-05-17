@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -29,7 +29,7 @@ export default function Navbar({ variant = 'landing', activeTab, onTabChange, ve
         {/* Logo */}
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <img src="/favicon-nobg.svg" alt="Vfetch" className="h-6 w-auto" />
+            <Image src="/favicon-nobg.svg" alt="Vfetch" width={24} height={24} className="h-6 w-auto" />
             <span className="font-headline font-bold text-lg text-primary tracking-tight">Vfetch</span>
           </Link>
         </div>
@@ -58,13 +58,8 @@ export default function Navbar({ variant = 'landing', activeTab, onTabChange, ve
           </Link>
           {variant === 'app' && venueLogo && (
             <div className="w-9 h-9 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/10">
-              <img alt={venueName || 'Venue'} className="w-full h-full object-cover" src={venueLogo} />
+              <Image alt={venueName || 'Venue'} className="w-full h-full object-cover" src={venueLogo} width={36} height={36} />
             </div>
-          )}
-          {variant === 'app' && (
-            <button className="md:hidden p-1">
-              <span className="material-symbols-outlined text-primary text-2xl">menu</span>
-            </button>
           )}
         </div>
       </div>
