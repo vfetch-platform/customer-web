@@ -221,6 +221,7 @@ export default function WizardShell({ venue }: WizardShellProps) {
         venueId: venue.id,
         category: formData.category || undefined,
         photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
+        termsAccepted: true,
       });
 
       const newQueryId = queryResponse.data.id;
